@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Deep, calm blue - reads as "workshop paperwork", not "startup neon". */
+    --primary: 215 82% 36%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 214 32% 95%;
+    --secondary-foreground: 222 47% 15%;
+
+    --muted: 214 32% 95%;
+    --muted-foreground: 215 16% 44%;
+
+    --accent: 214 32% 93%;
+    --accent-foreground: 222 47% 15%;
+
+    --destructive: 0 72% 46%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 25% 88%;
+    --input: 214 25% 86%;
+    --ring: 215 82% 36%;
+
+    --radius: 0.6rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  /* Bigger tap targets and no iOS zoom-on-focus for the phone-first crowd. */
+  @media (max-width: 640px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+}
+
+@layer components {
+  .stat-card-hover {
+    @apply transition-all hover:-translate-y-0.5 hover:shadow-md;
+  }
+
+  .table-row-link {
+    @apply cursor-pointer transition-colors hover:bg-muted/60;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * Print: strip the app chrome so invoices and job cards come out clean on A4.
+ * ----------------------------------------------------------------------- */
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  .no-print,
+  nav,
+  header.app-header,
+  aside.app-sidebar,
+  .app-bottom-nav {
+    display: none !important;
+  }
+
+  .print-area {
+    position: static !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  .print-page {
+    page-break-after: always;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  a[href]::after {
+    content: '';
+  }
+
+  .print-keep-color {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

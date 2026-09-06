@@ -1,0 +1,24 @@
+# Local PostgreSQL for development, so the app runs with zero cloud setup.
+#   docker compose up -d
+# Then use the default DATABASE_URL from .env.example and run `npm run setup`.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: garage_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: garage
+      POSTGRES_PASSWORD: garage
+      POSTGRES_DB: garage
+    ports:
+      - '5432:5432'
+    volumes:
+      - garage_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U garage -d garage']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  garage_pgdata:

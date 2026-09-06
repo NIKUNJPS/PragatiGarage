@@ -1,0 +1,271 @@
+// Garage Management System - Prisma schema
+// Target database: PostgreSQL (Supabase, Neon, or the bundled docker-compose
+// Postgres for local development). Set DATABASE_URL in .env, then run
+// `npm run setup` to create the tables and load demo data.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // Direct (non-pooled) connection used by `prisma migrate` / `db push`. On
+  // Neon/Supabase set DATABASE_URL to the pooled URL and DIRECT_URL to the
+  // direct one. Locally both point at the same server.
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  STAFF
+}
+
+enum VehicleType {
+  BIKE
+  CAR
+}
+
+enum JobStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PAID
+  UNPAID
+}
+
+enum InvoiceItemKind {
+  PART
+  LABOUR
+  SERVICE
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(STAFF)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  resetTokens PasswordResetToken[]
+  customers   Customer[]           @relation("CustomerCreatedBy")
+  vehicles    Vehicle[]            @relation("VehicleCreatedBy")
+  jobCards    JobCard[]            @relation("JobCardCreatedBy")
+  invoices    Invoice[]            @relation("InvoiceCreatedBy")
+
+  @@index([email])
+  @@index([role])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+}
+
+/// Single-row table holding the garage business profile and document numbering.
+model Garage {
+  id                String   @id @default("garage")
+  name              String   @default("My Garage")
+  address           String   @default("")
+  phone             String   @default("")
+  whatsappNumber    String   @default("")
+  gstNumber         String   @default("")
+  email             String   @default("")
+  logoUrl           String?
+  currency          String   @default("INR")
+  invoicePrefix     String   @default("INV-{YYYY}-")
+  invoiceNextNumber Int      @default(1)
+  jobCardPrefix     String   @default("JC-{YYYY}-")
+  jobCardNextNumber Int      @default(1)
+  defaultTaxRate    Decimal  @default(18) @db.Decimal(5, 2)
+  invoiceTerms      String   @default("Thank you for your business. Goods once sold are not returnable. Warranty as per manufacturer policy.")
+  sessionTimeoutMin Int      @default(120)
+  setupCompleted    Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Customer {
+  id             String   @id @default(cuid())
+  name           String
+  mobileNumber   String
+  whatsappNumber String?
+  address        String?
+  notes          String?
+  isArchived     Boolean  @default(false)
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  createdBy User?     @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  vehicles  Vehicle[]
+  jobCards  JobCard[]
+  invoices  Invoice[]
+
+  @@index([name])
+  @@index([mobileNumber])
+  @@index([isArchived])
+  @@index([createdById])
+}
+
+model Vehicle {
+  id            String      @id @default(cuid())
+  vehicleNumber String      @unique
+  vehicleType   VehicleType @default(BIKE)
+  brand         String      @default("")
+  model         String      @default("")
+  year          Int?
+  color         String?
+  odometer      Int?
+  customerId    String
+  isArchived    Boolean     @default(false)
+  createdById   String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  customer  Customer  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdBy User?     @relation("VehicleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  jobCards  JobCard[]
+
+  @@index([vehicleNumber])
+  @@index([customerId])
+  @@index([vehicleType])
+  @@index([brand])
+  @@index([model])
+  @@index([isArchived])
+}
+
+model JobCard {
+  id            String    @id @default(cuid())
+  jobCardNumber String    @unique
+  vehicleId     String
+  customerId    String
+  complaint     String    @default("")
+  workPerformed String    @default("")
+  status        JobStatus @default(PENDING)
+  odometer      Int?
+  isArchived    Boolean   @default(false)
+  createdById   String?
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  vehicle        Vehicle         @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  customer       Customer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdBy      User?           @relation("JobCardCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  parts          PartUsed[]
+  labourCharges  LabourCharge[]
+  serviceCharges ServiceCharge[]
+  invoice        Invoice?
+
+  @@index([jobCardNumber])
+  @@index([vehicleId])
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([isArchived])
+}
+
+model PartUsed {
+  id        String  @id @default(cuid())
+  jobCardId String
+  partName  String
+  quantity  Decimal @default(1) @db.Decimal(12, 2)
+  unitPrice Decimal @default(0) @db.Decimal(12, 2)
+  total     Decimal @default(0) @db.Decimal(12, 2)
+  sortOrder Int     @default(0)
+
+  jobCard JobCard @relation(fields: [jobCardId], references: [id], onDelete: Cascade)
+
+  @@index([jobCardId])
+}
+
+model LabourCharge {
+  id          String  @id @default(cuid())
+  jobCardId   String
+  description String
+  amount      Decimal @default(0) @db.Decimal(12, 2)
+  sortOrder   Int     @default(0)
+
+  jobCard JobCard @relation(fields: [jobCardId], references: [id], onDelete: Cascade)
+
+  @@index([jobCardId])
+}
+
+model ServiceCharge {
+  id          String  @id @default(cuid())
+  jobCardId   String
+  description String
+  amount      Decimal @default(0) @db.Decimal(12, 2)
+  sortOrder   Int     @default(0)
+
+  jobCard JobCard @relation(fields: [jobCardId], references: [id], onDelete: Cascade)
+
+  @@index([jobCardId])
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  invoiceNumber String        @unique
+  publicToken   String        @unique
+  jobCardId     String        @unique
+  customerId    String
+  subtotal      Decimal       @default(0) @db.Decimal(12, 2)
+  taxRate       Decimal       @default(0) @db.Decimal(5, 2)
+  tax           Decimal       @default(0) @db.Decimal(12, 2)
+  discount      Decimal       @default(0) @db.Decimal(12, 2)
+  totalAmount   Decimal       @default(0) @db.Decimal(12, 2)
+  paymentStatus PaymentStatus @default(UNPAID)
+  paymentMethod String?
+  notes         String?
+  pdfUrl        String?
+  isArchived    Boolean       @default(false)
+  createdById   String?
+  paidAt        DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  jobCard   JobCard       @relation(fields: [jobCardId], references: [id], onDelete: Restrict)
+  customer  Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdBy User?         @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  items     InvoiceItem[]
+
+  @@index([invoiceNumber])
+  @@index([customerId])
+  @@index([paymentStatus])
+  @@index([createdAt])
+  @@index([isArchived])
+}
+
+/// Snapshot of the job-card line items taken when the invoice is created, so later
+/// edits to the job card never rewrite billing history.
+model InvoiceItem {
+  id          String          @id @default(cuid())
+  invoiceId   String
+  kind        InvoiceItemKind
+  description String
+  quantity    Decimal         @default(1) @db.Decimal(12, 2)
+  unitPrice   Decimal         @default(0) @db.Decimal(12, 2)
+  total       Decimal         @default(0) @db.Decimal(12, 2)
+  sortOrder   Int             @default(0)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
