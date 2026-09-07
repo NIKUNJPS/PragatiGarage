@@ -12,3 +12,4 @@ coverage
 public/uploads
 .claude/settings.local.json
 .claude/launch.json
+tsconfig.tsbuildinfo

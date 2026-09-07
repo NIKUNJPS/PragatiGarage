@@ -65,6 +65,7 @@ export function GarageSettingsForm({
       phone: garage.phone,
       whatsappNumber: garage.whatsappNumber,
       gstNumber: garage.gstNumber,
+      tagline: garage.tagline,
       email: garage.email,
       currency: garage.currency as FormValues['currency'],
       invoicePrefix: garage.invoicePrefix,
@@ -116,6 +117,18 @@ export function GarageSettingsForm({
             </Label>
             <Input id="name" className="mt-1.5" invalid={!!errors.name} {...register('name')} />
             <FieldError message={errors.name?.message} />
+          </div>
+
+          <div>
+            <Label htmlFor="tagline">Tagline</Label>
+            <Input
+              id="tagline"
+              className="mt-1.5"
+              placeholder="e.g. PLACE WHERE QUALITY AND SERVICE MEET"
+              {...register('tagline')}
+            />
+            <FieldError message={errors.tagline?.message} />
+            <FieldHint>Shown under your garage name on invoices.</FieldHint>
           </div>
 
           <div>

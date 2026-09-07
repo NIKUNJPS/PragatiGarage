@@ -58,6 +58,7 @@ export interface InvoiceView {
     whatsappNumber: string;
     gstNumber: string;
     email: string;
+    tagline: string;
     logoUrl: string | null;
     currency: string;
     invoiceTerms: string;
@@ -127,6 +128,7 @@ export async function buildInvoiceView(invoice: LoadedInvoice): Promise<InvoiceV
       whatsappNumber: garage.whatsappNumber,
       gstNumber: garage.gstNumber,
       email: garage.email,
+      tagline: garage.tagline,
       logoUrl: garage.logoUrl,
       currency: garage.currency,
       invoiceTerms: garage.invoiceTerms,

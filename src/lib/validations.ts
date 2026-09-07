@@ -140,6 +140,7 @@ export const garageSchema = z.object({
   phone: optionalPhoneSchema,
   whatsappNumber: optionalPhoneSchema,
   gstNumber: trimmed(30).optional().default(''),
+  tagline: trimmed(120).optional().default(''),
   email: z.union([emailSchema, z.literal('')]).optional().default(''),
   currency: z.enum(['INR', 'USD', 'EUR', 'GBP', 'AED', 'AUD', 'CAD']).default('INR'),
   invoicePrefix: trimmed(12).min(1, 'Invoice prefix is required.'),

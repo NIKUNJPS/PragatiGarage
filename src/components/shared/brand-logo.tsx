@@ -3,14 +3,14 @@
 import * as React from 'react';
 
 /**
- * Shows the garage's brand logo from /public/logo.png.
+ * Shows a logo image from `src`, falling back to `fallback` only if it is
+ * missing or fails to load - so a missing file never renders as a broken image.
  *
- * If that file is not present (or the uploaded `src` fails to load) it quietly
- * falls back to whatever `fallback` renders - so the app never shows a broken
- * image. Drop your logo at `public/logo.png` and it appears everywhere.
+ * Callers pass the uploaded garage logo when present, otherwise the built-in
+ * brand mark at /public/logo.svg (which always exists).
  */
 export function BrandLogo({
-  src = '/logo.png',
+  src,
   alt = 'Logo',
   className,
   fallback,
@@ -22,15 +22,12 @@ export function BrandLogo({
 }) {
   const [failed, setFailed] = React.useState(false);
 
+  React.useEffect(() => setFailed(false), [src]);
+
   if (!src || failed) return <>{fallback}</>;
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={src}
-      alt={alt}
-      className={className}
-      onError={() => setFailed(true)}
-    />
+    <img key={src} src={src} alt={alt} className={className} onError={() => setFailed(true)} />
   );
 }

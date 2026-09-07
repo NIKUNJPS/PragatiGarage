@@ -23,6 +23,7 @@ export function serializeGarage(g: Garage): GarageDTO {
     whatsappNumber: g.whatsappNumber,
     gstNumber: g.gstNumber,
     email: g.email,
+    tagline: g.tagline,
     logoUrl: g.logoUrl,
     currency: g.currency,
     invoicePrefix: g.invoicePrefix,

@@ -1,30 +1,28 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type PDFImage } from 'pdf-lib';
 
 import type { InvoiceView } from '@/lib/invoice-data';
-import { KIND_LABELS } from '@/lib/invoice-data';
 import { formatDate, round2 } from '@/lib/utils';
 
 /* --------------------------------------------------------------------------
- * A4 invoice renderer built on pdf-lib.
- * The layout intentionally mirrors the on-screen invoice so the printed copy,
- * the browser print view and the downloaded PDF all look the same.
+ * A4 invoice PDF built to mirror the Pragati Auto bill book: centred logo +
+ * tagline + phone, a customer/vehicle info box, a black-header
+ * Sr.No / Particulars / Amount table, a TOTAL AMOUNT bar, and a
+ * Thank You / Authorised Sign footer, with red/black corner accents.
+ * pdf-lib + the standard Helvetica fonts (no external font files needed).
  * ----------------------------------------------------------------------- */
 
 const A4 = { width: 595.28, height: 841.89 };
-const M = 42; // page margin
-const INK = rgb(0.09, 0.11, 0.15);
+const M = 40;
+const INK = rgb(0.06, 0.09, 0.16);
 const MUTED = rgb(0.42, 0.46, 0.53);
-const LINE = rgb(0.85, 0.87, 0.9);
-const BAND = rgb(0.96, 0.97, 0.98);
-const BRAND = rgb(0.05, 0.36, 0.72);
+const LINE = rgb(0.8, 0.83, 0.86);
+const RED = rgb(0.86, 0.15, 0.15);
+const BLACK = rgb(0.05, 0.07, 0.11);
 const GREEN = rgb(0.06, 0.5, 0.28);
-const RED = rgb(0.72, 0.11, 0.15);
+const WHITE = rgb(1, 1, 1);
 
-/**
- * The standard PDF fonts only cover WinAnsi, which has no rupee sign, so INR is
- * written as "Rs." Everything else uses its normal symbol.
- */
-function pdfCurrency(value: number, currency: string): string {
+/** Standard PDF fonts have no rupee glyph, so INR is written "Rs." */
+function money(value: number, currency: string): string {
   const symbols: Record<string, string> = {
     INR: 'Rs. ',
     USD: '$',
@@ -35,14 +33,14 @@ function pdfCurrency(value: number, currency: string): string {
     CAD: 'C$',
   };
   const sym = symbols[currency] ?? `${currency} `;
-  const n = round2(value).toLocaleString('en-US', {
+  const n = round2(value).toLocaleString('en-IN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
   return `${sym}${n}`;
 }
 
-/** pdf-lib throws on characters outside WinAnsi, so scrub anything exotic. */
+/** Scrub characters outside WinAnsi (pdf-lib throws on them). */
 function safe(text: string): string {
   return (text || '')
     .replace(/[‘’]/g, "'")
@@ -52,33 +50,20 @@ function safe(text: string): string {
     .replace(/[^\x20-\x7E\n]/g, '');
 }
 
-function textWidth(font: PDFFont, text: string, size: number) {
+function width(font: PDFFont, text: string, size: number) {
   return font.widthOfTextAtSize(safe(text), size);
 }
 
-/** Greedy word wrap that also hard-splits words longer than the column. */
 function wrap(font: PDFFont, text: string, size: number, maxWidth: number): string[] {
   const out: string[] = [];
   for (const paragraph of safe(text).split('\n')) {
     let line = '';
     for (const word of paragraph.split(/\s+/).filter(Boolean)) {
       const candidate = line ? `${line} ${word}` : word;
-      if (textWidth(font, candidate, size) <= maxWidth) {
-        line = candidate;
-        continue;
-      }
-      if (line) out.push(line);
-      if (textWidth(font, word, size) <= maxWidth) {
+      if (width(font, candidate, size) <= maxWidth) line = candidate;
+      else {
+        if (line) out.push(line);
         line = word;
-      } else {
-        let chunk = '';
-        for (const ch of word) {
-          if (textWidth(font, chunk + ch, size) > maxWidth) {
-            out.push(chunk);
-            chunk = ch;
-          } else chunk += ch;
-        }
-        line = chunk;
       }
     }
     out.push(line);
@@ -86,47 +71,11 @@ function wrap(font: PDFFont, text: string, size: number, maxWidth: number): stri
   return out.length ? out : [''];
 }
 
-interface Ctx {
-  doc: PDFDocument;
-  page: PDFPage;
-  regular: PDFFont;
-  bold: PDFFont;
-  y: number;
-}
-
-function draw(
-  ctx: Ctx,
-  text: string,
-  x: number,
-  size: number,
-  opts: { bold?: boolean; color?: ReturnType<typeof rgb>; y?: number } = {},
-) {
-  ctx.page.drawText(safe(text), {
-    x,
-    y: opts.y ?? ctx.y,
-    size,
-    font: opts.bold ? ctx.bold : ctx.regular,
-    color: opts.color ?? INK,
-  });
-}
-
-function drawRight(
-  ctx: Ctx,
-  text: string,
-  right: number,
-  size: number,
-  opts: { bold?: boolean; color?: ReturnType<typeof rgb>; y?: number } = {},
-) {
-  const font = opts.bold ? ctx.bold : ctx.regular;
-  draw(ctx, text, right - textWidth(font, text, size), size, opts);
-}
-
 async function embedLogo(doc: PDFDocument, logoUrl: string | null): Promise<PDFImage | null> {
   if (!logoUrl) return null;
   try {
     let bytes: Uint8Array;
-    let isPng = logoUrl.includes('image/png') || /\.png($|\?)/i.test(logoUrl);
-
+    let isPng = /image\/png/.test(logoUrl) || /\.png($|\?)/i.test(logoUrl);
     if (logoUrl.startsWith('data:')) {
       const [meta, b64] = logoUrl.split(',');
       if (!b64) return null;
@@ -137,11 +86,11 @@ async function embedLogo(doc: PDFDocument, logoUrl: string | null): Promise<PDFI
       if (!res.ok) return null;
       const type = res.headers.get('content-type') || '';
       if (type.includes('png')) isPng = true;
+      if (type.includes('svg')) return null; // pdf-lib can't embed SVG
       bytes = new Uint8Array(await res.arrayBuffer());
     }
     return isPng ? await doc.embedPng(bytes) : await doc.embedJpg(bytes);
   } catch {
-    // A broken logo should never stop an invoice from being produced.
     return null;
   }
 }
@@ -149,304 +98,257 @@ async function embedLogo(doc: PDFDocument, logoUrl: string | null): Promise<PDFI
 export async function renderInvoicePdf(invoice: InvoiceView): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.setTitle(`Invoice ${invoice.invoiceNumber}`);
-  doc.setSubject(`Invoice for ${invoice.vehicle.vehicleNumber}`);
   doc.setProducer('Garage Management System');
   doc.setCreator(invoice.garage.name);
 
-  const regular = await doc.embedFont(StandardFonts.Helvetica);
+  const reg = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const oblique = await doc.embedFont(StandardFonts.HelveticaOblique);
+  const boldOblique = await doc.embedFont(StandardFonts.HelveticaBoldOblique);
   const logo = await embedLogo(doc, invoice.garage.logoUrl);
 
-  const currency = invoice.garage.currency;
-  const money = (v: number) => pdfCurrency(v, currency);
-  const contentWidth = A4.width - M * 2;
-  const right = A4.width - M;
+  const g = invoice.garage;
+  const cur = g.currency;
+  let page: PDFPage = doc.addPage([A4.width, A4.height]);
+  const W = A4.width;
+  const H = A4.height;
+  const right = W - M;
+  const centerX = W / 2;
 
-  let page = doc.addPage([A4.width, A4.height]);
-  const ctx: Ctx = { doc, page, regular, bold, y: A4.height - M };
+  const text = (
+    t: string,
+    x: number,
+    y: number,
+    size: number,
+    opts: { font?: PDFFont; color?: ReturnType<typeof rgb> } = {},
+  ) => page.drawText(safe(t), { x, y, size, font: opts.font ?? reg, color: opts.color ?? INK });
 
-  /* ---------------------------------------------------------------- header */
-  let headerX = M;
+  const center = (
+    t: string,
+    y: number,
+    size: number,
+    opts: { font?: PDFFont; color?: ReturnType<typeof rgb> } = {},
+  ) => text(t, centerX - width(opts.font ?? reg, t, size) / 2, y, size, opts);
+
+  const rightText = (
+    t: string,
+    x: number,
+    y: number,
+    size: number,
+    opts: { font?: PDFFont; color?: ReturnType<typeof rgb> } = {},
+  ) => text(t, x - width(opts.font ?? reg, t, size), y, size, opts);
+
+  /* ------------------------------------------------------------- corners */
+  const corner = (cx: number, cy: number, sx: number, sy: number) => {
+    // big black triangle + smaller red triangle
+    page.drawSvgPath(`M0 0 L${52 * sx} 0 L0 ${52 * sy} Z`, { x: cx, y: cy, color: BLACK });
+    page.drawSvgPath(`M0 0 L${32 * sx} 0 L0 ${32 * sy} Z`, { x: cx, y: cy, color: RED });
+  };
+  corner(0, H, 1, 1); // top-left (y down in svg path)
+  corner(W, H, -1, 1); // top-right
+  corner(0, 0, 1, -1); // bottom-left
+  corner(W, 0, -1, -1); // bottom-right
+
+  let y = H - M - 6;
+
+  /* -------------------------------------------------------------- header */
   if (logo) {
-    const box = 56;
+    const box = 74;
     const scale = Math.min(box / logo.width, box / logo.height);
     const w = logo.width * scale;
     const h = logo.height * scale;
-    ctx.page.drawImage(logo, { x: M, y: ctx.y - h, width: w, height: h });
-    headerX = M + w + 14;
+    page.drawImage(logo, { x: centerX - w / 2, y: y - h, width: w, height: h });
+    y -= h + 6;
+  } else {
+    y -= 6;
   }
 
-  ctx.y -= 16;
-  draw(ctx, invoice.garage.name, headerX, 17, { bold: true });
-  ctx.y -= 14;
-  const infoLines = [
-    invoice.garage.address,
-    [invoice.garage.phone && `Phone: ${invoice.garage.phone}`, invoice.garage.email]
-      .filter(Boolean)
-      .join('   '),
-    invoice.garage.gstNumber ? `GSTIN: ${invoice.garage.gstNumber}` : '',
-  ].filter(Boolean) as string[];
+  center(g.name.toUpperCase(), y - 18, 20, { font: bold });
+  y -= 26;
 
-  for (const info of infoLines) {
-    for (const line of wrap(regular, info, 9, contentWidth - (headerX - M) - 150)) {
-      draw(ctx, line, headerX, 9, { color: MUTED });
-      ctx.y -= 11;
+  if (g.tagline) {
+    const size = 9;
+    const tw = width(boldOblique, g.tagline.toUpperCase(), size);
+    center(g.tagline.toUpperCase(), y - 8, size, { font: boldOblique });
+    const lineY = y - 5;
+    page.drawLine({ start: { x: centerX - tw / 2 - 30, y: lineY }, end: { x: centerX - tw / 2 - 8, y: lineY }, thickness: 1.2, color: RED });
+    page.drawLine({ start: { x: centerX + tw / 2 + 8, y: lineY }, end: { x: centerX + tw / 2 + 30, y: lineY }, thickness: 1.2, color: RED });
+    y -= 16;
+  }
+
+  if (g.phone) {
+    center(g.phone, y - 12, 13, { font: bold });
+    y -= 18;
+  }
+
+  const meta = [g.address, g.gstNumber && `GSTIN: ${g.gstNumber}`].filter(Boolean).join('   ');
+  if (meta) {
+    for (const line of wrap(reg, meta, 8, W - 2 * M - 20)) {
+      center(line, y - 8, 8, { color: MUTED });
+      y -= 10;
     }
   }
 
-  // Invoice meta block, right aligned against the header.
-  let metaY = A4.height - M - 14;
-  drawRight(ctx, 'TAX INVOICE', right, 16, { bold: true, color: BRAND, y: metaY });
-  metaY -= 16;
-  drawRight(ctx, `No. ${invoice.invoiceNumber}`, right, 10, { bold: true, y: metaY });
-  metaY -= 13;
-  drawRight(ctx, `Date: ${formatDate(invoice.createdAt)}`, right, 9, { color: MUTED, y: metaY });
-  metaY -= 12;
-  drawRight(ctx, `Job Card: ${invoice.jobCard.jobCardNumber}`, right, 9, {
-    color: MUTED,
-    y: metaY,
-  });
+  y -= 8;
+  page.drawLine({ start: { x: M, y }, end: { x: right, y }, thickness: 0.8, color: LINE });
+  y -= 4;
 
-  // Payment status pill
-  metaY -= 20;
+  // invoice no + status
+  text(`Invoice: ${invoice.invoiceNumber}`, M, y - 11, 9, { font: bold });
   const paid = invoice.paymentStatus === 'PAID';
-  const pillText = paid ? 'PAID' : 'PAYMENT DUE';
-  const pillW = textWidth(bold, pillText, 9) + 18;
-  ctx.page.drawRectangle({
-    x: right - pillW,
-    y: metaY - 4,
-    width: pillW,
-    height: 17,
-    color: paid ? rgb(0.9, 0.97, 0.92) : rgb(0.99, 0.92, 0.92),
-    borderColor: paid ? GREEN : RED,
-    borderWidth: 0.8,
-  });
-  drawRight(ctx, pillText, right - 9, 9, { bold: true, color: paid ? GREEN : RED, y: metaY });
+  const pill = paid ? 'PAID' : 'PAYMENT DUE';
+  const pw = width(bold, pill, 8) + 14;
+  page.drawRectangle({ x: right - pw, y: y - 13, width: pw, height: 15, color: paid ? GREEN : RED });
+  rightText(pill, right - 7, y - 10, 8, { font: bold, color: WHITE });
+  y -= 24;
 
-  ctx.y = Math.min(ctx.y, metaY) - 24;
+  /* ------------------------------------------------ customer/vehicle box */
+  const boxTop = y;
+  const rowH = 18;
+  const boxH = rowH * 3 + 12;
+  page.drawRectangle({ x: M, y: boxTop - boxH, width: W - 2 * M, height: boxH, borderColor: BLACK, borderWidth: 1.4 });
 
-  ctx.page.drawLine({
-    start: { x: M, y: ctx.y },
-    end: { x: right, y: ctx.y },
-    thickness: 1,
-    color: LINE,
-  });
-  ctx.y -= 22;
-
-  /* -------------------------------------------------- bill-to / vehicle box */
-  const colW = contentWidth / 2 - 8;
-  const boxTop = ctx.y;
-
-  draw(ctx, 'BILL TO', M, 8, { bold: true, color: MUTED });
-  draw(ctx, 'VEHICLE', M + colW + 16, 8, { bold: true, color: MUTED });
-  ctx.y -= 14;
-
-  const customerLines = [
-    invoice.customer.name,
-    `Mobile: ${invoice.customer.mobileNumber}`,
-    invoice.customer.address || '',
-  ].filter(Boolean);
-
-  const vehicleLines = [
-    invoice.vehicle.vehicleNumber,
-    [invoice.vehicle.brand, invoice.vehicle.model].filter(Boolean).join(' ') ||
-      (invoice.vehicle.vehicleType === 'CAR' ? 'Car' : 'Bike'),
-    `Type: ${invoice.vehicle.vehicleType === 'CAR' ? 'Car' : 'Bike'}`,
-    invoice.vehicle.odometer ? `Odometer: ${invoice.vehicle.odometer} km` : '',
-  ].filter(Boolean);
-
-  const leftWrapped = customerLines.flatMap((l, i) => wrap(regular, l, i === 0 ? 11 : 9, colW));
-  const rightWrapped = vehicleLines.flatMap((l, i) => wrap(regular, l, i === 0 ? 11 : 9, colW));
-  const rows = Math.max(leftWrapped.length, rightWrapped.length);
-
-  for (let i = 0; i < rows; i++) {
-    const rowY = boxTop - 14 - i * 12;
-    if (leftWrapped[i] !== undefined)
-      draw(ctx, leftWrapped[i], M, i === 0 ? 11 : 9, {
-        bold: i === 0,
-        color: i === 0 ? INK : MUTED,
-        y: rowY,
-      });
-    if (rightWrapped[i] !== undefined)
-      draw(ctx, rightWrapped[i], M + colW + 16, i === 0 ? 11 : 9, {
-        bold: i === 0,
-        color: i === 0 ? INK : MUTED,
-        y: rowY,
-      });
-  }
-  ctx.y = boxTop - 14 - rows * 12 - 16;
-
-  /* ----------------------------------------------------------- items table */
-  const cols = {
-    sn: M + 6,
-    desc: M + 30,
-    type: M + 292,
-    qty: M + 372,
-    rate: M + 440,
-    amount: right - 6,
+  const colL = M + 12;
+  const colR = centerX + 10;
+  const field = (label: string, value: string, x: number, ry: number, mono = false) => {
+    text(`${label} :`, x, ry, 9, { font: bold });
+    const lx = x + width(bold, `${label} :`, 9) + 6;
+    text(value || '-', lx, ry, 9, { font: mono ? bold : reg });
   };
-  const descWidth = cols.type - cols.desc - 10;
 
-  const drawTableHeader = () => {
-    ctx.page.drawRectangle({
-      x: M,
-      y: ctx.y - 6,
-      width: contentWidth,
-      height: 22,
-      color: BAND,
-    });
-    draw(ctx, '#', cols.sn, 8.5, { bold: true, color: MUTED });
-    draw(ctx, 'DESCRIPTION', cols.desc, 8.5, { bold: true, color: MUTED });
-    draw(ctx, 'TYPE', cols.type, 8.5, { bold: true, color: MUTED });
-    drawRight(ctx, 'QTY', cols.qty + 26, 8.5, { bold: true, color: MUTED });
-    drawRight(ctx, 'RATE', cols.rate + 50, 8.5, { bold: true, color: MUTED });
-    drawRight(ctx, 'AMOUNT', cols.amount, 8.5, { bold: true, color: MUTED });
-    ctx.y -= 24;
+  let ry = boxTop - 16;
+  field('Customer Name', invoice.customer.name, colL, ry);
+  field('Vehicle No.', invoice.vehicle.vehicleNumber, colR, ry, true);
+  ry -= rowH;
+  const makeModel =
+    [invoice.vehicle.brand, invoice.vehicle.model].filter(Boolean).join(' ') ||
+    (invoice.vehicle.vehicleType === 'CAR' ? 'Car' : 'Bike');
+  field('Model', makeModel, colL, ry);
+  field('K.M.', invoice.vehicle.odometer ? `${invoice.vehicle.odometer} km` : '-', colR, ry);
+  ry -= rowH;
+  field('Contact No.', invoice.customer.mobileNumber, colL, ry);
+  field('Date', formatDate(invoice.createdAt), colR, ry);
+
+  y = boxTop - boxH - 16;
+
+  /* --------------------------------------------------------------- table */
+  const cols = { sn: M, snW: 48, amtW: 110 };
+  const partsX = M + cols.snW;
+  const amtX = right - cols.amtW;
+  const tableW = W - 2 * M;
+
+  const drawHeader = () => {
+    page.drawRectangle({ x: M, y: y - 20, width: tableW, height: 20, color: BLACK });
+    text('Sr. No.', M + 6, y - 14, 9, { font: bold, color: WHITE });
+    text('Particulars', partsX + 8, y - 14, 9, { font: bold, color: WHITE });
+    rightText('Amount (Rs.)', right - 6, y - 14, 9, { font: bold, color: WHITE });
+    // vertical separators
+    page.drawLine({ start: { x: partsX, y: y }, end: { x: partsX, y: y - 20 }, thickness: 1, color: WHITE });
+    page.drawLine({ start: { x: amtX, y: y }, end: { x: amtX, y: y - 20 }, thickness: 1, color: WHITE });
+    y -= 20;
   };
 
   const newPage = () => {
     page = doc.addPage([A4.width, A4.height]);
-    ctx.page = page;
-    ctx.y = A4.height - M;
-    draw(ctx, `Invoice ${invoice.invoiceNumber} (continued)`, M, 9, { color: MUTED });
-    ctx.y -= 20;
-    drawTableHeader();
   };
 
-  drawTableHeader();
+  drawHeader();
 
-  invoice.items.forEach((item, index) => {
-    const lines = wrap(regular, item.description, 9.5, descWidth);
-    const rowHeight = Math.max(18, lines.length * 12 + 6);
-
-    if (ctx.y - rowHeight < 190) newPage();
-
+  const partWidth = amtX - partsX - 16;
+  const drawRow = (sn: string, particulars: string, amount: string | null, index: number) => {
+    const lines = particulars ? wrap(reg, particulars, 9, partWidth) : [''];
+    const h = Math.max(rowH, lines.length * 11 + 7);
     if (index % 2 === 1) {
-      ctx.page.drawRectangle({
-        x: M,
-        y: ctx.y - rowHeight + 12,
-        width: contentWidth,
-        height: rowHeight,
-        color: rgb(0.985, 0.99, 0.995),
-      });
+      page.drawRectangle({ x: M, y: y - h, width: tableW, height: h, color: rgb(0.97, 0.98, 0.99) });
     }
+    // borders
+    page.drawRectangle({ x: M, y: y - h, width: tableW, height: h, borderColor: LINE, borderWidth: 0.7 });
+    page.drawLine({ start: { x: partsX, y }, end: { x: partsX, y: y - h }, thickness: 0.7, color: LINE });
+    page.drawLine({ start: { x: amtX, y }, end: { x: amtX, y: y - h }, thickness: 0.7, color: LINE });
 
-    draw(ctx, String(index + 1), cols.sn, 9.5, { color: MUTED });
-    lines.forEach((line, i) => {
-      draw(ctx, line, cols.desc, 9.5, { y: ctx.y - i * 12 });
-    });
-    draw(ctx, KIND_LABELS[item.kind], cols.type, 9, { color: MUTED });
-    drawRight(ctx, String(item.quantity), cols.qty + 26, 9.5);
-    drawRight(ctx, money(item.unitPrice), cols.rate + 50, 9.5);
-    drawRight(ctx, money(item.total), cols.amount, 9.5, { bold: true });
-
-    ctx.y -= rowHeight;
-    ctx.page.drawLine({
-      start: { x: M, y: ctx.y + 10 },
-      end: { x: right, y: ctx.y + 10 },
-      thickness: 0.5,
-      color: LINE,
-    });
-  });
-
-  /* --------------------------------------------------------------- totals */
-  if (ctx.y < 210) newPage();
-  ctx.y -= 12;
-
-  const totalsLeft = right - 220;
-  const totalRow = (label: string, value: string, opts: { bold?: boolean; color?: any } = {}) => {
-    draw(ctx, label, totalsLeft, opts.bold ? 10.5 : 9.5, {
-      bold: opts.bold,
-      color: opts.color ?? MUTED,
-    });
-    drawRight(ctx, value, right, opts.bold ? 10.5 : 9.5, { bold: true, color: opts.color ?? INK });
-    ctx.y -= opts.bold ? 18 : 15;
+    text(sn, M + 10, y - 13, 9, { color: MUTED });
+    lines.forEach((l, i) => text(l, partsX + 8, y - 13 - i * 11, 9, { font: reg }));
+    if (amount !== null) rightText(amount, right - 6, y - 13, 9, { font: bold });
+    y -= h;
   };
 
-  totalRow('Subtotal', money(invoice.subtotal));
-  if (invoice.discount > 0) totalRow('Discount', `- ${money(invoice.discount)}`);
-  if (invoice.taxRate > 0 || invoice.tax > 0)
-    totalRow(`Tax / GST (${invoice.taxRate}%)`, money(invoice.tax));
-
-  ctx.page.drawLine({
-    start: { x: totalsLeft, y: ctx.y + 8 },
-    end: { x: right, y: ctx.y + 8 },
-    thickness: 0.8,
-    color: LINE,
+  invoice.items.forEach((item, i) => {
+    if (y < 210) {
+      newPage();
+      y = H - M - 20;
+      drawHeader();
+    }
+    const p =
+      item.quantity && item.quantity !== 1
+        ? `${item.description}  (${item.quantity} x ${money(item.unitPrice, cur)})`
+        : item.description;
+    drawRow(`${i + 1}.`, p, money(item.total, cur), i);
   });
-  ctx.y -= 8;
+  // pad to a few rows
+  for (let i = invoice.items.length; i < 4; i++) {
+    drawRow(`${i + 1}.`, '', null, i);
+  }
 
-  ctx.page.drawRectangle({
-    x: totalsLeft - 12,
-    y: ctx.y - 8,
-    width: right - totalsLeft + 12,
-    height: 26,
-    color: BAND,
-  });
-  ctx.y -= 1;
-  totalRow('GRAND TOTAL', money(invoice.totalAmount), { bold: true, color: INK });
+  /* -------------------------------------------------------------- totals */
+  y -= 12;
+  const tl = right - 210;
+  const totalRow = (label: string, value: string) => {
+    text(label, tl, y - 9, 9, { color: MUTED });
+    rightText(value, right, y - 9, 9, { font: bold });
+    y -= 14;
+  };
+  totalRow('Subtotal', money(invoice.subtotal, cur));
+  if (invoice.discount > 0) totalRow('Discount', `- ${money(invoice.discount, cur)}`);
+  if (invoice.taxRate > 0 || invoice.tax > 0) totalRow(`GST (${invoice.taxRate}%)`, money(invoice.tax, cur));
 
-  if (invoice.paymentStatus === 'PAID' && invoice.paidAt) {
-    ctx.y -= 4;
-    drawRight(
-      ctx,
+  y -= 2;
+  // TOTAL AMOUNT bar
+  const barH = 26;
+  const barY = y - barH;
+  const labelW = 150;
+  page.drawRectangle({ x: tl - 20, y: barY, width: right - (tl - 20), height: barH, borderColor: BLACK, borderWidth: 1.4 });
+  page.drawRectangle({ x: tl - 20, y: barY, width: labelW, height: barH, color: BLACK });
+  text('TOTAL AMOUNT', tl - 12, barY + 9, 11, { font: bold, color: WHITE });
+  rightText(money(invoice.totalAmount, cur), right - 8, barY + 8, 12, { font: bold });
+  y = barY - 8;
+
+  if (paid && invoice.paidAt) {
+    rightText(
       `Paid on ${formatDate(invoice.paidAt)}${invoice.paymentMethod ? ` (${invoice.paymentMethod})` : ''}`,
       right,
-      8.5,
+      y - 8,
+      8,
       { color: GREEN },
     );
-    ctx.y -= 14;
+    y -= 14;
   }
 
-  /* ------------------------------------------------- complaint / work done */
-  ctx.y -= 12;
-  const notesBlocks: Array<[string, string]> = [];
-  if (invoice.jobCard.complaint) notesBlocks.push(['Customer complaint', invoice.jobCard.complaint]);
-  if (invoice.jobCard.workPerformed)
-    notesBlocks.push(['Work performed', invoice.jobCard.workPerformed]);
-  if (invoice.notes) notesBlocks.push(['Notes', invoice.notes]);
-
-  for (const [label, body] of notesBlocks) {
-    const lines = wrap(regular, body, 8.5, contentWidth);
-    if (ctx.y - (lines.length * 11 + 20) < 90) newPage();
-    draw(ctx, label.toUpperCase(), M, 8, { bold: true, color: MUTED });
-    ctx.y -= 12;
-    for (const line of lines) {
-      draw(ctx, line, M, 8.5, { color: INK });
-      ctx.y -= 11;
+  /* --------------------------------------------------- complaint / notes */
+  const notes: string[] = [];
+  if (invoice.jobCard.complaint) notes.push(`Complaint: ${invoice.jobCard.complaint}`);
+  if (invoice.notes) notes.push(`Note: ${invoice.notes}`);
+  if (notes.length) {
+    y -= 6;
+    for (const n of notes) {
+      for (const line of wrap(reg, n, 8, W - 2 * M)) {
+        text(line, M, y - 8, 8, { color: MUTED });
+        y -= 10;
+      }
     }
-    ctx.y -= 8;
   }
 
-  /* --------------------------------------------------------------- footer */
-  const footerY = 58;
-  const pages = doc.getPages();
-  pages.forEach((p, i) => {
-    p.drawLine({
-      start: { x: M, y: footerY + 26 },
-      end: { x: right, y: footerY + 26 },
-      thickness: 0.5,
-      color: LINE,
-    });
-    const terms = wrap(regular, invoice.garage.invoiceTerms, 7.5, contentWidth - 90);
-    terms.slice(0, 2).forEach((line, li) => {
-      p.drawText(safe(line), {
-        x: M,
-        y: footerY + 12 - li * 9,
-        size: 7.5,
-        font: regular,
-        color: MUTED,
-      });
-    });
-    const pageLabel = `Page ${i + 1} of ${pages.length}`;
-    p.drawText(pageLabel, {
-      x: right - regular.widthOfTextAtSize(pageLabel, 7.5),
-      y: footerY + 12,
-      size: 7.5,
-      font: regular,
-      color: MUTED,
-    });
-  });
+  /* -------------------------------------------------------------- footer */
+  const footY = 70;
+  text('Thank You!', M, footY + 6, 20, { font: boldOblique });
+  page.drawLine({ start: { x: M, y: footY - 2 }, end: { x: M + 24, y: footY - 2 }, thickness: 2, color: RED });
+  text('VISIT AGAIN', M + 30, footY - 6, 11, { font: bold });
+
+  page.drawLine({ start: { x: right - 150, y: footY + 2 }, end: { x: right, y: footY + 2 }, thickness: 0.8, color: LINE });
+  rightText('AUTHORISED SIGN', right, footY - 10, 9, { font: bold, color: MUTED });
+
+  // terms line at very bottom
+  const terms = wrap(reg, invoice.garage.invoiceTerms, 7, W - 2 * M)[0] || '';
+  center(terms, 34, 7, { color: MUTED });
 
   return doc.save();
 }

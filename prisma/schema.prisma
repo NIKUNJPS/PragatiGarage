@@ -87,6 +87,7 @@ model Garage {
   whatsappNumber    String   @default("")
   gstNumber         String   @default("")
   email             String   @default("")
+  tagline           String   @default("")
   logoUrl           String?
   currency          String   @default("INR")
   invoicePrefix     String   @default("INV-{YYYY}-")

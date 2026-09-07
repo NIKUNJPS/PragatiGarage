@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480" width="480" height="480" role="img" aria-label="Pragati Auto - Raskar and Sons">
+  <defs>
+    <linearGradient id="silver" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.45" stop-color="#e8e8ea"/>
+      <stop offset="0.55" stop-color="#9fa3a8"/>
+      <stop offset="1" stop-color="#d7d9dc"/>
+    </linearGradient>
+  </defs>
+
+  <!-- black rounded background -->
+  <rect width="480" height="480" rx="60" fill="#050505"/>
+
+  <!-- sporty car silhouette (top profile) -->
+  <g transform="translate(240 150)">
+    <path d="M-150 20 C-110 -20 -60 -46 0 -48 C58 -50 108 -30 150 18 L120 22
+             C92 -6 54 -20 6 -20 C-44 -20 -92 -4 -120 24 Z"
+          fill="url(#silver)"/>
+    <path d="M-150 30 C-110 -6 -60 -30 0 -32 C58 -34 108 -14 150 30 L128 32
+             C96 2 54 -10 6 -10 C-46 -10 -96 6 -126 34 Z"
+          fill="#e11d1d"/>
+    <path d="M8 -30 L70 -6 L40 -2 Z" fill="#e11d1d"/>
+  </g>
+
+  <!-- PRAGATI -->
+  <text x="240" y="292" text-anchor="middle" font-family="Arial Black, Arial, sans-serif"
+        font-weight="900" font-style="italic" font-size="92" letter-spacing="-2"
+        fill="url(#silver)">PRAGATI</text>
+
+  <!-- red speed dashes -->
+  <g fill="#e11d1d">
+    <rect x="70" y="330" width="70" height="10" rx="5"/>
+    <rect x="88" y="348" width="52" height="9" rx="4.5"/>
+    <rect x="340" y="330" width="70" height="10" rx="5"/>
+    <rect x="340" y="348" width="52" height="9" rx="4.5"/>
+  </g>
+
+  <!-- AUTO -->
+  <text x="240" y="356" text-anchor="middle" font-family="Arial Black, Arial, sans-serif"
+        font-weight="900" font-style="italic" font-size="58" letter-spacing="2"
+        fill="#e11d1d">AUTO</text>
+
+  <!-- RASKAR AND SONS -->
+  <g>
+    <rect x="86" y="392" width="40" height="4" rx="2" fill="#e11d1d"/>
+    <rect x="354" y="392" width="40" height="4" rx="2" fill="#e11d1d"/>
+    <text x="240" y="400" text-anchor="middle" font-family="Arial, sans-serif"
+          font-weight="700" font-size="30" letter-spacing="6"
+          fill="url(#silver)">RASKAR AND SONS</text>
+  </g>
+</svg>

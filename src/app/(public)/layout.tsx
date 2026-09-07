@@ -10,6 +10,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
           <div className="mb-6 flex flex-col items-center text-center">
             {/* Shows /public/logo.png; falls back to a generic mark until you add it. */}
             <BrandLogo
+              src="/logo.svg"
               className="mb-3 h-20 w-20 rounded-xl bg-black object-contain p-1.5 shadow-sm"
               alt="Garage logo"
               fallback={

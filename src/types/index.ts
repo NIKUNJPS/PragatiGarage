@@ -38,6 +38,7 @@ export interface GarageDTO {
   whatsappNumber: string;
   gstNumber: string;
   email: string;
+  tagline: string;
   logoUrl: string | null;
   currency: string;
   invoicePrefix: string;
