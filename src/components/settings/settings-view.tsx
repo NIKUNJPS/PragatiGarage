@@ -7,10 +7,13 @@ import { Card } from '@/components/ui/card';
 import { ErrorState, Skeleton, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/misc';
 import { PageHeader } from '@/components/shared/page-header';
 import { GarageSettingsForm } from '@/components/settings/garage-settings-form';
-import { StaffList } from '@/components/settings/staff-list';
 import { ChangePasswordForm } from '@/components/settings/change-password-form';
 import type { GarageDTO } from '@/types';
 
+/**
+ * Single-login app: Settings covers the garage profile and the owner's own
+ * account (change password). There is no staff/multi-user management.
+ */
 export function SettingsView() {
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['garage-settings'],
@@ -21,7 +24,7 @@ export function SettingsView() {
     <div>
       <PageHeader
         title="Settings"
-        description="Manage your garage profile, document numbering and staff logins."
+        description="Manage your garage profile, invoice numbering and your password."
       />
 
       <Tabs defaultValue="business">
@@ -29,11 +32,8 @@ export function SettingsView() {
           <TabsTrigger value="business" className="flex-1 sm:flex-none">
             Garage
           </TabsTrigger>
-          <TabsTrigger value="staff" className="flex-1 sm:flex-none">
-            Staff
-          </TabsTrigger>
           <TabsTrigger value="account" className="flex-1 sm:flex-none">
-            Account
+            Account &amp; Password
           </TabsTrigger>
         </TabsList>
 
@@ -47,10 +47,6 @@ export function SettingsView() {
           ) : (
             <GarageSettingsForm garage={data} onSaved={() => void refetch()} />
           )}
-        </TabsContent>
-
-        <TabsContent value="staff">
-          <StaffList />
         </TabsContent>
 
         <TabsContent value="account">

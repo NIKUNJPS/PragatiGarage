@@ -102,16 +102,16 @@ npm run dev
 
 Open **http://localhost:3000** and sign in with the demo credentials below.
 
-### Demo logins (created by the seed script)
+### Login (single owner account)
 
-| Role  | Email               | Password    | Can do                                             |
-| ----- | ------------------- | ----------- | -------------------------------------------------- |
-| Admin | `admin@garage.com`  | `Admin@123` | Everything, including settings & staff management  |
-| Staff | `staff@garage.com`  | `Staff@123` | Customers, vehicles, job cards — no deletes/settings |
+This is a **single-login** app — one owner (admin) account, configured via the
+`SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` environment variables and created by
+`npm run db:seed`. The default demo values are `admin@garage.com` / `Admin@123`.
+The owner can change their password anytime in **Settings → Account & Password**.
+Additional logins are disabled by design.
 
-The seed loads a demo garage (**Pragati Auto – Raskar and Sons**) with 6
-customers, 7 vehicles, and 7 job cards/invoices in mixed states (paid, unpaid,
-pending, in-progress).
+The seed also loads a demo garage (**Pragati Auto – Raskar and Sons**) with a few
+customers, vehicles and invoices so the app is explorable immediately.
 
 ### Add your logo
 

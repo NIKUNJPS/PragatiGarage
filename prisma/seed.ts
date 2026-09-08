@@ -13,10 +13,10 @@ import { randomBytes } from 'crypto';
 
 const prisma = new PrismaClient();
 
+// Single-login app: one owner (ADMIN) account, configured via env.
 const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL || 'admin@garage.com';
 const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || 'Admin@123';
-const STAFF_EMAIL = process.env.SEED_STAFF_EMAIL || 'staff@garage.com';
-const STAFF_PASSWORD = process.env.SEED_STAFF_PASSWORD || 'Staff@123';
+const ADMIN_NAME = process.env.SEED_ADMIN_NAME || 'Ramesh Raskar';
 
 const D = (n: number) => new Prisma.Decimal(n.toFixed(2));
 const daysAgo = (days: number) => {
@@ -29,26 +29,15 @@ const token = () => randomBytes(18).toString('base64url');
 async function main() {
   console.log('Seeding garage management system...');
 
-  /* ------------------------------------------------------------- users */
+  /* -------------------------------------------------- the single owner */
   const admin = await prisma.user.upsert({
     where: { email: ADMIN_EMAIL },
     update: {},
     create: {
-      name: 'Suresh Patel',
+      name: ADMIN_NAME,
       email: ADMIN_EMAIL,
       passwordHash: await bcrypt.hash(ADMIN_PASSWORD, 12),
       role: 'ADMIN',
-    },
-  });
-
-  const staff = await prisma.user.upsert({
-    where: { email: STAFF_EMAIL },
-    update: {},
-    create: {
-      name: 'Ravi Mechanic',
-      email: STAFF_EMAIL,
-      passwordHash: await bcrypt.hash(STAFF_PASSWORD, 12),
-      role: 'STAFF',
     },
   });
 
@@ -255,7 +244,7 @@ async function main() {
         status: def.status,
         odometer: vehicle.odometer,
         completedAt: def.status === 'COMPLETED' ? def.createdAt : null,
-        createdById: def.status === 'PENDING' ? staff.id : admin.id,
+        createdById: admin.id,
         createdAt: def.createdAt,
         parts: {
           create: def.parts.map((p, i) => ({
@@ -355,9 +344,8 @@ async function summary() {
   console.log(`  Vehicles:  ${vehicles}`);
   console.log(`  Job cards: ${jobCards}`);
   console.log(`  Invoices:  ${invoices}`);
-  console.log('\nDemo logins:');
-  console.log(`  Admin  ->  ${ADMIN_EMAIL}  /  ${ADMIN_PASSWORD}`);
-  console.log(`  Staff  ->  ${STAFF_EMAIL}  /  ${STAFF_PASSWORD}\n`);
+  console.log('\nOwner login (the only account):');
+  console.log(`  ${ADMIN_EMAIL}  /  ${ADMIN_PASSWORD}\n`);
 }
 
 main()

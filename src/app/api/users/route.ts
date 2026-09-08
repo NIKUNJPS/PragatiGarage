@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { adminOnly, created, ok, parseBody, withAuth } from '@/lib/api';
+import { ApiError, adminOnly, created, ok, parseBody, withAuth } from '@/lib/api';
 import { hashPassword } from '@/lib/auth';
 import { appUrl } from '@/lib/env';
 import { getGarage } from '@/lib/garage';
@@ -28,6 +28,12 @@ export const GET = withAuth(async () => {
 }, adminOnly);
 
 export const POST = withAuth(async (req) => {
+  // Single-login app: never allow a second account to be created.
+  const existing = await prisma.user.count();
+  if (existing >= 1) {
+    throw new ApiError(403, 'This app runs with a single owner login. Additional accounts are disabled.');
+  }
+
   const { name, email, password, role } = await parseBody(req, createUserSchema);
 
   const user = await prisma.user.create({

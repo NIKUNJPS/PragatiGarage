@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, Check, Hash, ImagePlus, MessageCircle, Store, Users } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Hash, ImagePlus, MessageCircle, Store } from 'lucide-react';
 import { z } from 'zod';
 
 import { api, applyFieldErrors, errorMessage } from '@/lib/client-api';
@@ -19,8 +19,7 @@ import { Input, Textarea } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { FieldError, FieldHint, Skeleton } from '@/components/ui/misc';
 import { LogoUploader } from '@/components/settings/logo-uploader';
-import { StaffDialog } from '@/components/settings/staff-dialog';
-import type { GarageDTO, UserDTO } from '@/types';
+import type { GarageDTO } from '@/types';
 
 const stepSchema = garageSchema.pick({
   name: true,
@@ -40,7 +39,7 @@ const STEPS = [
   { icon: ImagePlus, title: 'Logo' },
   { icon: Hash, title: 'Numbering' },
   { icon: MessageCircle, title: 'WhatsApp' },
-  { icon: Users, title: 'Staff' },
+  { icon: Check, title: 'Finish' },
 ];
 
 export function SetupWizard() {
@@ -49,16 +48,10 @@ export function SetupWizard() {
   const { refresh } = useSession();
   const [step, setStep] = React.useState(0);
   const [logo, setLogo] = React.useState<GarageDTO | null>(null);
-  const [staffOpen, setStaffOpen] = React.useState(false);
 
   const { data: garage, isLoading } = useQuery({
     queryKey: ['garage-setup'],
     queryFn: () => api.get<GarageDTO>('/api/garage'),
-  });
-
-  const { data: staff, refetch: refetchStaff } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => api.get<{ data: UserDTO[] }>('/api/users'),
   });
 
   const {
@@ -285,39 +278,18 @@ export function SetupWizard() {
               </FieldHint>
             </div>
 
-            {/* Step 4 - staff */}
+            {/* Step 4 - finish */}
             <div className={cn(step !== 4 && 'hidden')}>
-              <p className="text-sm text-muted-foreground">
-                Add logins for your mechanics and front-desk staff. They can manage customers,
-                vehicles and job cards, but only you (admin) can change settings or delete records.
-                You can skip this and add them later.
-              </p>
-
-              <div className="mt-4 space-y-2">
-                {(staff?.data ?? []).map((member) => (
-                  <div
-                    key={member.id}
-                    className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
-                  >
-                    <div>
-                      <p className="font-medium">{member.name}</p>
-                      <p className="text-xs text-muted-foreground">{member.email}</p>
-                    </div>
-                    <span className="rounded bg-secondary px-2 py-0.5 text-xs font-medium">
-                      {member.role === 'ADMIN' ? 'Admin' : 'Staff'}
-                    </span>
-                  </div>
-                ))}
+              <div className="flex flex-col items-center gap-3 py-4 text-center">
+                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                  <Check className="h-6 w-6" />
+                </span>
+                <p className="text-sm text-muted-foreground">
+                  That&apos;s everything. Click <span className="font-medium">Finish setup</span> to
+                  start using your garage system. You can change any of these details later in
+                  <span className="font-medium"> Settings</span>, including your password.
+                </p>
               </div>
-
-              <Button
-                type="button"
-                variant="outline"
-                className="mt-3"
-                onClick={() => setStaffOpen(true)}
-              >
-                <Users /> Add a staff login
-              </Button>
             </div>
           </CardContent>
         </Card>
@@ -343,12 +315,6 @@ export function SetupWizard() {
           )}
         </div>
       </form>
-
-      <StaffDialog
-        open={staffOpen}
-        onOpenChange={setStaffOpen}
-        onSaved={() => void refetchStaff()}
-      />
     </div>
   );
 }
@@ -358,5 +324,5 @@ const descriptions = [
   'Add your garage logo (optional).',
   'Choose how your job cards and invoices are numbered.',
   'The number customers see when you share invoices on WhatsApp.',
-  'Invite the people who will use this system with you.',
+  'You are all set - finish to start using the system.',
 ];
