@@ -338,17 +338,19 @@ export async function renderInvoicePdf(invoice: InvoiceView): Promise<Uint8Array
   }
 
   /* -------------------------------------------------------------- footer */
-  const footY = 70;
-  text('Thank You!', M, footY + 6, 20, { font: boldOblique });
-  page.drawLine({ start: { x: M, y: footY - 2 }, end: { x: M + 24, y: footY - 2 }, thickness: 2, color: RED });
-  text('VISIT AGAIN', M + 30, footY - 6, 11, { font: bold });
-
-  page.drawLine({ start: { x: right - 150, y: footY + 2 }, end: { x: right, y: footY + 2 }, thickness: 0.8, color: LINE });
-  rightText('AUTHORISED SIGN', right, footY - 10, 9, { font: bold, color: MUTED });
+  const footY = 66;
+  // "Thank You! / VISIT AGAIN" centred (no signature - invoices are sent digitally)
+  center('Thank You!', footY + 8, 22, { font: boldOblique });
+  const va = 'VISIT AGAIN';
+  const vaW = width(bold, va, 11);
+  center(va, footY - 8, 11, { font: bold });
+  const vaCx = centerX;
+  page.drawLine({ start: { x: vaCx - vaW / 2 - 22, y: footY - 4 }, end: { x: vaCx - vaW / 2 - 8, y: footY - 4 }, thickness: 2, color: RED });
+  page.drawLine({ start: { x: vaCx + vaW / 2 + 8, y: footY - 4 }, end: { x: vaCx + vaW / 2 + 22, y: footY - 4 }, thickness: 2, color: RED });
 
   // terms line at very bottom
   const terms = wrap(reg, invoice.garage.invoiceTerms, 7, W - 2 * M)[0] || '';
-  center(terms, 34, 7, { color: MUTED });
+  center(terms, 32, 7, { color: MUTED });
 
   return doc.save();
 }

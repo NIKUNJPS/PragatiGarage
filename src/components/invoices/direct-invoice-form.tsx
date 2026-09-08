@@ -104,7 +104,7 @@ export function DirectInvoiceForm({ presetVehicle }: { presetVehicle?: VehicleDT
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['session'] });
       toast.success('Invoice created', `${invoice.invoiceNumber} saved.`);
-      router.push(`/invoices/${invoice.id}`);
+      router.push(`/invoices/${invoice.id}?created=1`);
       router.refresh();
     },
     onError: (error) => {

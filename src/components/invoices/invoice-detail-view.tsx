@@ -2,8 +2,9 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, ClipboardList, Download, Printer, Undo2 } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Download, PartyPopper, Printer, Undo2 } from 'lucide-react';
 
 import { api, errorMessage } from '@/lib/client-api';
 import { formatCurrency } from '@/lib/utils';
@@ -33,6 +34,7 @@ export function InvoiceDetailView({ invoiceId }: { invoiceId: string }) {
   const toast = useToast();
   const queryClient = useQueryClient();
   const { garage } = useSession();
+  const justCreated = useSearchParams().get('created') === '1';
 
   const [payOpen, setPayOpen] = React.useState(false);
   const [paymentMethod, setPaymentMethod] = React.useState('Cash');
@@ -126,6 +128,23 @@ export function InvoiceDetailView({ invoiceId }: { invoiceId: string }) {
           </>
         }
       />
+
+      {justCreated && (
+        <div className="mb-4 flex flex-col gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-900 no-print sm:flex-row sm:items-center sm:justify-between">
+          <span className="flex items-center gap-2 text-sm">
+            <PartyPopper className="h-5 w-5 shrink-0" />
+            <span>
+              <span className="font-semibold">Invoice {data.invoiceNumber} created.</span> Send it to{' '}
+              {data.customer.name} on WhatsApp
+              {data.customer.whatsappNumber || data.customer.mobileNumber
+                ? ` (${data.customer.whatsappNumber || data.customer.mobileNumber})`
+                : ''}
+              .
+            </span>
+          </span>
+          <WhatsAppShareButton invoice={data} onUpdated={() => void refetch()} />
+        </div>
+      )}
 
       {!isPaid && (
         <div className="mb-4 flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-900 no-print sm:flex-row sm:items-center sm:justify-between">

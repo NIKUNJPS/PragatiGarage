@@ -191,19 +191,17 @@ export function InvoiceDocument({ invoice }: { invoice: InvoiceView }) {
         )}
 
         {/* --------------------------------------------------------- footer */}
-        <div className="mt-6 flex items-end justify-between gap-4">
-          <div>
-            <p className="text-2xl font-bold italic text-slate-900" style={{ fontFamily: 'Georgia, cursive' }}>
-              Thank You!
-            </p>
-            <p className="flex items-center gap-2 text-sm font-black uppercase tracking-wide">
-              <span className="h-0.5 w-6 bg-red-600 print-keep-color" /> Visit Again
-            </p>
-          </div>
-          <div className="text-center">
-            <div className="mb-1 h-8 w-40 border-b border-slate-400" />
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-600">Authorised Sign</p>
-          </div>
+        <div className="mt-6 flex flex-col items-center gap-1 text-center">
+          <p
+            className="text-3xl font-bold italic text-slate-900"
+            style={{ fontFamily: 'Georgia, cursive' }}
+          >
+            Thank You!
+          </p>
+          <p className="flex items-center gap-2 text-sm font-black uppercase tracking-wide">
+            <span className="h-0.5 w-6 bg-red-600 print-keep-color" /> Visit Again
+            <span className="h-0.5 w-6 bg-red-600 print-keep-color" />
+          </p>
         </div>
       </div>
     </div>
