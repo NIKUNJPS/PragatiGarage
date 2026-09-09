@@ -102,6 +102,14 @@ export function InvoiceDetailView({ invoiceId }: { invoiceId: string }) {
           <>
             <WhatsAppShareButton invoice={data} onUpdated={() => void refetch()} />
 
+            {/* Free "time for your next service" WhatsApp reminder for this vehicle. */}
+            <WhatsAppShareButton
+              invoice={data}
+              mode="service"
+              variant="outline"
+              onUpdated={() => void refetch()}
+            />
+
             <Button variant="outline" asChild>
               <a href={`/api/invoices/${data.id}/pdf`} download={`${data.invoiceNumber}.pdf`}>
                 <Download /> Download PDF

@@ -272,21 +272,51 @@ export async function renderInvoicePdf(invoice: InvoiceView): Promise<Uint8Array
     y -= h;
   };
 
-  invoice.items.forEach((item, i) => {
+  // section sub-header row inside the table (bifurcation label + section total)
+  const drawSectionHeader = (label: string, sectionTotal: string) => {
+    const h = 15;
+    page.drawRectangle({ x: M, y: y - h, width: tableW, height: h, color: rgb(0.93, 0.94, 0.96) });
+    page.drawRectangle({ x: M, y: y - h, width: tableW, height: h, borderColor: LINE, borderWidth: 0.7 });
+    text(label.toUpperCase(), M + 8, y - 11, 8.5, { font: bold, color: INK });
+    rightText(sectionTotal, right - 6, y - 11, 8.5, { font: bold, color: MUTED });
+    y -= h;
+  };
+
+  // Bifurcate into Spare Parts / Labour / Service sections.
+  const sections: Array<{ kind: 'PART' | 'LABOUR' | 'SERVICE'; label: string }> = [
+    { kind: 'PART', label: 'Spare Parts' },
+    { kind: 'LABOUR', label: 'Labour Charges' },
+    { kind: 'SERVICE', label: 'Service Charges' },
+  ];
+
+  let serial = 0;
+  let rowIndex = 0;
+  for (const section of sections) {
+    const items = invoice.items.filter((it) => it.kind === section.kind);
+    if (items.length === 0) continue;
+    const sectionTotal = items.reduce((s, it) => s + it.total, 0);
+
     if (y < 210) {
       newPage();
       y = H - M - 20;
       drawHeader();
     }
-    const p =
-      item.quantity && item.quantity !== 1
-        ? `${item.description}  (${item.quantity} x ${money(item.unitPrice, cur)})`
-        : item.description;
-    drawRow(`${i + 1}.`, p, money(item.total, cur), i);
-  });
-  // pad to a few rows
-  for (let i = invoice.items.length; i < 4; i++) {
-    drawRow(`${i + 1}.`, '', null, i);
+    drawSectionHeader(section.label, money(sectionTotal, cur));
+
+    for (const item of items) {
+      if (y < 190) {
+        newPage();
+        y = H - M - 20;
+        drawHeader();
+      }
+      serial += 1;
+      const p =
+        item.quantity && item.quantity !== 1
+          ? `${item.description}  (${item.quantity} x ${money(item.unitPrice, cur)})`
+          : item.description;
+      drawRow(`${serial}.`, p, money(item.total, cur), rowIndex);
+      rowIndex += 1;
+    }
   }
 
   /* -------------------------------------------------------------- totals */

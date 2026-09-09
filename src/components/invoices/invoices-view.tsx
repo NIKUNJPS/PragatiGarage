@@ -20,6 +20,7 @@ import { PageHeader } from '@/components/shared/page-header';
 import { Pagination } from '@/components/shared/pagination';
 import { SearchInput } from '@/components/shared/search-input';
 import { PaymentStatusBadge } from '@/components/shared/status-badge';
+import { InvoiceRowActions } from '@/components/invoices/invoice-row-actions';
 import type { InvoiceListItemDTO, Paginated } from '@/types';
 
 const STATUS_FILTERS = [
@@ -207,6 +208,7 @@ export function InvoicesView() {
                       <TableHead>Vehicle</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="w-10" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -237,6 +239,9 @@ export function InvoicesView() {
                         <TableCell className="text-right font-semibold">
                           {formatCurrency(invoice.totalAmount, garage.currency)}
                         </TableCell>
+                        <TableCell>
+                          <InvoiceRowActions invoice={invoice} />
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -245,8 +250,8 @@ export function InvoicesView() {
 
               <ul className="divide-y md:hidden">
                 {invoices.map((invoice) => (
-                  <li key={invoice.id}>
-                    <Link href={`/invoices/${invoice.id}`} className="block px-4 py-3">
+                  <li key={invoice.id} className="flex items-center gap-1 pr-2">
+                    <Link href={`/invoices/${invoice.id}`} className="block flex-1 px-4 py-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="font-medium">{invoice.invoiceNumber}</p>
@@ -268,6 +273,7 @@ export function InvoicesView() {
                         </div>
                       </div>
                     </Link>
+                    <InvoiceRowActions invoice={invoice} />
                   </li>
                 ))}
               </ul>

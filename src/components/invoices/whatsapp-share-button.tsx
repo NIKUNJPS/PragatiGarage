@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { BellRing, MessageCircle } from 'lucide-react';
+import { BellRing, CalendarClock, MessageCircle } from 'lucide-react';
 
 import { api, applyFieldErrors, errorMessage } from '@/lib/client-api';
 import { useToast } from '@/hooks/use-toast';
@@ -18,8 +18,25 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { FieldError, FieldHint } from '@/components/ui/misc';
-import type { InvoiceView } from '@/lib/invoice-data';
 import type { ShareInvoiceResponse } from '@/types';
+
+/** Minimal invoice shape needed to share - works with a full invoice or a list row. */
+export interface ShareableInvoice {
+  id: string;
+  invoiceNumber: string;
+  customer: { name: string; whatsappNumber: string | null; mobileNumber: string };
+}
+
+type ShareMode = 'invoice' | 'reminder' | 'service';
+
+const MODES: Record<
+  ShareMode,
+  { label: string; noun: string; icon: React.ComponentType<{ className?: string }> }
+> = {
+  invoice: { label: 'Share on WhatsApp', noun: 'invoice', icon: MessageCircle },
+  reminder: { label: 'Send payment reminder', noun: 'payment reminder', icon: BellRing },
+  service: { label: 'Service reminder', noun: 'service reminder', icon: CalendarClock },
+};
 
 /**
  * True one-click WhatsApp sharing.
@@ -38,21 +55,24 @@ export function WhatsAppShareButton({
   mode = 'invoice',
   variant = 'whatsapp',
   size,
+  label,
 }: {
-  invoice: InvoiceView;
+  invoice: ShareableInvoice;
   onUpdated?: () => void;
-  /** 'invoice' sends the bill; 'reminder' sends a payment-due nudge. Both free. */
-  mode?: 'invoice' | 'reminder';
-  variant?: 'whatsapp' | 'outline';
+  /** 'invoice' sends the bill; 'reminder' a payment nudge; 'service' a next-service reminder. All free. */
+  mode?: ShareMode;
+  variant?: 'whatsapp' | 'outline' | 'ghost';
   size?: 'sm' | 'default';
+  label?: string;
 }) {
   const toast = useToast();
   const [promptOpen, setPromptOpen] = React.useState(false);
   const [numberInput, setNumberInput] = React.useState('');
   const [numberError, setNumberError] = React.useState<string | undefined>();
 
-  const isReminder = mode === 'reminder';
-  const noun = isReminder ? 'reminder' : 'invoice';
+  const cfg = MODES[mode];
+  const Icon = cfg.icon;
+  const noun = cfg.noun;
   const hasNumber = Boolean(invoice.customer.whatsappNumber || invoice.customer.mobileNumber);
 
   const share = useMutation({
@@ -105,8 +125,8 @@ export function WhatsAppShareButton({
           else setPromptOpen(true);
         }}
       >
-        {isReminder ? <BellRing /> : <MessageCircle />}
-        {isReminder ? 'Send payment reminder' : 'Share on WhatsApp'}
+        <Icon />
+        {label ?? cfg.label}
       </Button>
 
       <Dialog open={promptOpen} onOpenChange={setPromptOpen}>

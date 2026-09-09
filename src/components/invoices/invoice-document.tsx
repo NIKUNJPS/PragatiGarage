@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { Phone } from 'lucide-react';
 
 import { formatCurrency, formatDate, prettyVehicleNumber } from '@/lib/utils';
@@ -12,6 +13,12 @@ import type { InvoiceView } from '@/lib/invoice-data';
  * Sr.No / Particulars / Amount table, a TOTAL AMOUNT bar, and a
  * Thank You / Authorised Sign footer. The printed page and PDF mirror this.
  */
+const SECTIONS: Array<{ kind: 'PART' | 'LABOUR' | 'SERVICE'; label: string }> = [
+  { kind: 'PART', label: 'Spare Parts' },
+  { kind: 'LABOUR', label: 'Labour Charges' },
+  { kind: 'SERVICE', label: 'Service Charges' },
+];
+
 export function InvoiceDocument({ invoice }: { invoice: InvoiceView }) {
   const currency = invoice.garage.currency;
   const money = (value: number) => formatCurrency(value, currency);
@@ -22,6 +29,18 @@ export function InvoiceDocument({ invoice }: { invoice: InvoiceView }) {
     item.quantity && item.quantity !== 1
       ? `${item.description}  (${item.quantity} × ${money(item.unitPrice)})`
       : item.description;
+
+  // Bifurcate the line items into Spare Parts / Labour / Service sections.
+  const groups = SECTIONS.map((s) => ({
+    ...s,
+    items: invoice.items.filter((i) => i.kind === s.kind),
+    total: invoice.items
+      .filter((i) => i.kind === s.kind)
+      .reduce((sum, i) => sum + i.total, 0),
+  })).filter((g2) => g2.items.length > 0);
+
+  // Continuous serial number across all sections.
+  let serial = 0;
 
   return (
     <div className="print-area relative overflow-hidden rounded-xl border-2 border-slate-900 bg-white text-slate-900 shadow-sm print-keep-color">
@@ -120,27 +139,48 @@ export function InvoiceDocument({ invoice }: { invoice: InvoiceView }) {
             </tr>
           </thead>
           <tbody>
-            {invoice.items.map((item, index) => (
-              <tr key={item.id}>
-                <td className="border border-slate-300 px-2 py-2 text-center text-slate-500">
-                  {index + 1}.
-                </td>
-                <td className="border border-slate-300 px-3 py-2 font-medium">{particulars(item)}</td>
-                <td className="border border-slate-300 px-3 py-2 text-right font-semibold">
-                  {money(item.total)}
+            {groups.map((group) => (
+              <React.Fragment key={group.kind}>
+                {/* section header (bifurcation) */}
+                <tr className="bg-slate-100 print-keep-color">
+                  <td
+                    colSpan={2}
+                    className="border border-slate-300 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-700"
+                  >
+                    {group.label}
+                  </td>
+                  <td className="border border-slate-300 px-3 py-1.5 text-right text-xs font-semibold text-slate-600">
+                    {money(group.total)}
+                  </td>
+                </tr>
+                {group.items.map((item) => {
+                  serial += 1;
+                  return (
+                    <tr key={item.id}>
+                      <td className="border border-slate-300 px-2 py-2 text-center text-slate-500">
+                        {serial}.
+                      </td>
+                      <td className="border border-slate-300 px-3 py-2 font-medium">
+                        {particulars(item)}
+                      </td>
+                      <td className="border border-slate-300 px-3 py-2 text-right font-semibold">
+                        {money(item.total)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </React.Fragment>
+            ))}
+            {groups.length === 0 && (
+              <tr>
+                <td
+                  colSpan={3}
+                  className="border border-slate-300 px-3 py-6 text-center text-sm text-slate-400"
+                >
+                  No items on this invoice.
                 </td>
               </tr>
-            ))}
-            {/* pad to a minimum of a few rows so it reads like the bill book */}
-            {Array.from({ length: Math.max(0, 4 - invoice.items.length) }).map((_, i) => (
-              <tr key={`pad-${i}`}>
-                <td className="border border-slate-300 px-2 py-2 text-center text-slate-300">
-                  {invoice.items.length + i + 1}.
-                </td>
-                <td className="border border-slate-300 px-3 py-2">&nbsp;</td>
-                <td className="border border-slate-300 px-3 py-2">&nbsp;</td>
-              </tr>
-            ))}
+            )}
           </tbody>
         </table>
 

@@ -9,6 +9,7 @@ import { optionalPhoneSchema } from '@/lib/validations';
 import {
   buildInvoiceMessage,
   buildReminderMessage,
+  buildServiceReminderMessage,
   invoicePdfUrl,
   invoiceShareUrl,
   sendInvoiceViaCloudApi,
@@ -24,8 +25,11 @@ const shareSchema = z.object({
   whatsappNumber: optionalPhoneSchema,
   /** Save the entered number back onto the customer record. */
   saveToCustomer: z.boolean().optional().default(true),
-  /** 'invoice' sends the bill; 'reminder' sends a payment-due nudge. */
-  kind: z.enum(['invoice', 'reminder']).optional().default('invoice'),
+  /**
+   * 'invoice' sends the bill, 'reminder' a payment-due nudge, 'service' a
+   * next-service reminder for the vehicle.
+   */
+  kind: z.enum(['invoice', 'reminder', 'service']).optional().default('invoice'),
 });
 
 /**
@@ -58,8 +62,8 @@ export const POST = withAuth(async (req, { params }) => {
     });
   }
 
-  // Make sure a PDF actually exists before we hand out a link to it.
-  if (!invoice.pdfUrl) {
+  // The invoice message links to the PDF; reminders are plain text and don't.
+  if (kind === 'invoice' && !invoice.pdfUrl) {
     try {
       const pdf = await renderInvoicePdf(invoice);
       const uploaded = await uploadInvoicePdf(invoice.invoiceNumber, pdf);
@@ -75,7 +79,11 @@ export const POST = withAuth(async (req, { params }) => {
   }
 
   const message =
-    kind === 'reminder' ? buildReminderMessage(invoice) : buildInvoiceMessage(invoice);
+    kind === 'service'
+      ? buildServiceReminderMessage(invoice)
+      : kind === 'reminder'
+        ? buildReminderMessage(invoice)
+        : buildInvoiceMessage(invoice);
 
   // Direct Cloud API delivery only applies to the invoice document itself; a
   // reminder is a plain text nudge sent through the same free wa.me link.

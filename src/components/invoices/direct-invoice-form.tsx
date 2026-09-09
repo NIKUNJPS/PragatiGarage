@@ -286,14 +286,39 @@ export function DirectInvoiceForm({ presetVehicle }: { presetVehicle?: VehicleDT
 
           {typeof errors.items?.message === 'string' && <FieldError message={errors.items.message} />}
 
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => items.append({ kind: 'PART', description: '', quantity: 1, unitPrice: 0 })}
-          >
-            <Plus /> Add line item
-          </Button>
+          {/* Quick-add pre-tagged rows so parts and labour stay bifurcated. */}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                items.append({ kind: 'PART', description: '', quantity: 1, unitPrice: 0 })
+              }
+            >
+              <Plus /> Spare part
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                items.append({ kind: 'LABOUR', description: '', quantity: 1, unitPrice: 0 })
+              }
+            >
+              <Plus /> Labour
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                items.append({ kind: 'SERVICE', description: '', quantity: 1, unitPrice: 0 })
+              }
+            >
+              <Plus /> Service
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

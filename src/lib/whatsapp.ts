@@ -79,6 +79,41 @@ export function buildReminderMessage(invoice: InvoiceView): string {
 }
 
 /**
+ * Friendly "time for your next service" reminder for a vehicle, sent over the
+ * same free wa.me path. References the vehicle and when it was last serviced.
+ */
+export function buildServiceReminderMessage(invoice: InvoiceView): string {
+  const vehicle =
+    [invoice.vehicle.brand, invoice.vehicle.model].filter(Boolean).join(' ') ||
+    invoice.vehicle.vehicleNumber;
+  const lastServiced = formatDateLike(invoice.jobCard.createdAt || invoice.createdAt);
+
+  return [
+    `Hi ${invoice.customer.name},`,
+    '',
+    `This is a friendly service reminder from ${invoice.garage.name}.`,
+    `Your ${vehicle} (${invoice.vehicle.vehicleNumber}) is due for its next service / check-up.`,
+    lastServiced ? `Last serviced on ${lastServiced}.` : '',
+    '',
+    'Regular servicing keeps your vehicle running smoothly and safely.',
+    invoice.garage.phone
+      ? `Please call us on ${invoice.garage.phone} or reply here to book a slot.`
+      : 'Please reply here to book a slot.',
+    '',
+    `- ${invoice.garage.name}`,
+  ]
+    .filter((line) => line !== undefined)
+    .join('\n');
+}
+
+/** Local date formatter (avoids importing the whole utils date helper here). */
+function formatDateLike(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+/**
  * Click-to-chat deep link. Works on WhatsApp Web and the mobile app with no
  * paid API setup - this is the default sharing path.
  */
