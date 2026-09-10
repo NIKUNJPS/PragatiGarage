@@ -56,7 +56,7 @@ async function main() {
       currency: 'INR',
       invoicePrefix: 'INV-{YYYY}-',
       jobCardPrefix: 'JC-{YYYY}-',
-      defaultTaxRate: D(18),
+      defaultTaxRate: D(0),
       invoiceTerms:
         'Thank you for choosing Pragati Auto (Raskar and Sons). Goods once sold are not returnable. Warranty as per manufacturer policy.',
       setupCompleted: true,

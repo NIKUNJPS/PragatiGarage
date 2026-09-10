@@ -94,7 +94,7 @@ model Garage {
   invoiceNextNumber Int      @default(1)
   jobCardPrefix     String   @default("JC-{YYYY}-")
   jobCardNextNumber Int      @default(1)
-  defaultTaxRate    Decimal  @default(18) @db.Decimal(5, 2)
+  defaultTaxRate    Decimal  @default(0) @db.Decimal(5, 2)
   invoiceTerms      String   @default("Thank you for your business. Goods once sold are not returnable. Warranty as per manufacturer policy.")
   sessionTimeoutMin Int      @default(120)
   setupCompleted    Boolean  @default(false)

@@ -2,9 +2,18 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, ClipboardList, Download, PartyPopper, Printer, Undo2 } from 'lucide-react';
+import {
+  CheckCircle2,
+  ClipboardList,
+  Download,
+  PartyPopper,
+  Pencil,
+  Printer,
+  Trash2,
+  Undo2,
+} from 'lucide-react';
 
 import { api, errorMessage } from '@/lib/client-api';
 import { formatCurrency } from '@/lib/utils';
@@ -32,11 +41,13 @@ import type { InvoiceView } from '@/lib/invoice-data';
 
 export function InvoiceDetailView({ invoiceId }: { invoiceId: string }) {
   const toast = useToast();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { garage } = useSession();
   const justCreated = useSearchParams().get('created') === '1';
 
   const [payOpen, setPayOpen] = React.useState(false);
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [paymentMethod, setPaymentMethod] = React.useState('Cash');
 
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -59,6 +70,20 @@ export function InvoiceDetailView({ invoiceId }: { invoiceId: string }) {
       );
     },
     onError: (err) => toast.error('Could not update payment status', errorMessage(err)),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.del<{ message: string }>(`/api/invoices/${invoiceId}?mode=hard`),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['job-cards'] });
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      toast.success('Invoice deleted', result.message);
+      router.push('/invoices');
+      router.refresh();
+    },
+    onError: (err) => toast.error('Could not delete invoice', errorMessage(err)),
   });
 
   if (isLoading) {
@@ -118,6 +143,20 @@ export function InvoiceDetailView({ invoiceId }: { invoiceId: string }) {
 
             <Button variant="outline" onClick={() => window.print()}>
               <Printer /> Print
+            </Button>
+
+            <Button variant="outline" asChild>
+              <Link href={`/invoices/${data.id}/edit`}>
+                <Pencil /> Edit
+              </Link>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 /> Delete
             </Button>
 
             {isPaid ? (
@@ -233,6 +272,32 @@ export function InvoiceDetailView({ invoiceId }: { invoiceId: string }) {
               }}
             >
               Confirm payment
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* --------------------------------------------------------- delete */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {data.invoiceNumber}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes the invoice and its job card (
+              {formatCurrency(data.totalAmount, garage.currency)}). The customer and vehicle are kept.
+              This cannot be undone. To only fix the amounts, use <strong>Edit</strong> instead.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              destructive
+              onClick={(e) => {
+                e.preventDefault();
+                deleteMutation.mutate();
+              }}
+            >
+              Delete permanently
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

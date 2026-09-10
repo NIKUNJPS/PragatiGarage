@@ -89,10 +89,36 @@ export const PATCH = withAuth(async (req, { params }) => {
   return ok(await buildInvoiceView(invoice));
 });
 
-/** Archive an invoice. Admin only - invoices are never physically deleted. */
+/**
+ * Delete an invoice.
+ *
+ * Default (?mode=archive or none): soft-delete (hide but keep the record).
+ * ?mode=hard: permanently remove the invoice, its line items AND the job card
+ * that was created with it (they are one billing record here). The customer and
+ * vehicle are untouched. Admin only.
+ */
 export const DELETE = withAuth(async (req, { params }) => {
   const url = new URL(req.url);
+  const mode = url.searchParams.get('mode');
   const restore = url.searchParams.get('restore') === 'true';
+
+  if (mode === 'hard') {
+    const existing = await prisma.invoice.findUnique({
+      where: { id: params.id },
+      select: { id: true, invoiceNumber: true, jobCardId: true },
+    });
+    if (!existing) throw new ApiError(404, 'That invoice no longer exists.');
+
+    await prisma.$transaction(async (tx) => {
+      // Invoice items cascade from the invoice; parts/labour/service cascade from
+      // the job card. Delete the invoice first (job card delete is Restrict-blocked
+      // while an invoice points at it).
+      await tx.invoice.delete({ where: { id: params.id } });
+      await tx.jobCard.delete({ where: { id: existing.jobCardId } });
+    });
+
+    return ok({ deleted: true, message: `Invoice ${existing.invoiceNumber} deleted permanently.` });
+  }
 
   const invoice = await prisma.invoice.update({
     where: { id: params.id },
@@ -102,6 +128,7 @@ export const DELETE = withAuth(async (req, { params }) => {
 
   return ok({
     ...(await buildInvoiceView(invoice)),
+    deleted: false,
     message: restore ? 'Invoice restored.' : 'Invoice archived.',
   });
 }, adminOnly);

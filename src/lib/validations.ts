@@ -291,6 +291,17 @@ export const directInvoiceSchema = z.object({
 });
 export type DirectInvoiceInput = z.infer<typeof directInvoiceSchema>;
 
+/** Client-side form schema for editing an existing invoice's line items & totals. */
+export const editInvoiceFormSchema = z.object({
+  items: z.array(invoiceItemSchema).min(1, 'Add at least one line item.'),
+  taxRate: z.coerce.number().min(0, 'Cannot be negative.').max(100, 'Cannot exceed 100%.').default(0),
+  discount: moneySchema.default(0),
+  paymentStatus: z.enum(['PAID', 'UNPAID']).default('UNPAID'),
+  paymentMethod: trimmed(40).optional().or(z.literal('')).transform((v) => v || undefined),
+  notes: trimmed(500).optional().or(z.literal('')).transform((v) => v || undefined),
+});
+export type EditInvoiceFormInput = z.infer<typeof editInvoiceFormSchema>;
+
 export const updateInvoiceSchema = z.object({
   items: z.array(invoiceItemSchema).min(1, 'Add at least one line item.').optional(),
   taxRate: z.coerce.number().min(0).max(100).optional(),
