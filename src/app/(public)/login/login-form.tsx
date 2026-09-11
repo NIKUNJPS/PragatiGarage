@@ -10,6 +10,7 @@ import { AlertCircle, ArrowRight, Database, Eye, EyeOff } from 'lucide-react';
 import { z } from 'zod';
 
 import { api, errorMessage } from '@/lib/client-api';
+import { DEMO_CREDENTIALS } from '@/lib/demo';
 import { loginSchema } from '@/lib/validations';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -123,6 +124,26 @@ export function LoginForm({
       </CardHeader>
 
       <CardContent>
+        <div className="mb-4 rounded-md border border-primary/25 bg-primary/[0.04] px-3 py-2.5 text-sm">
+          <p className="font-semibold text-foreground">Just exploring? Use the live demo</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Email <code className="rounded bg-muted px-1 py-0.5 font-mono">{DEMO_CREDENTIALS.email}</code>{' '}
+            · Password <code className="rounded bg-muted px-1 py-0.5 font-mono">{DEMO_CREDENTIALS.password}</code>
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            onClick={() => {
+              setValue('email', DEMO_CREDENTIALS.email);
+              setValue('password', DEMO_CREDENTIALS.password);
+            }}
+          >
+            Fill demo credentials
+          </Button>
+        </div>
+
         {notice && (
           <p className="mb-4 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
             {notice}

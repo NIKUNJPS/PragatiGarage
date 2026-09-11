@@ -19,7 +19,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
                 </span>
               }
             />
-            <h1 className="text-lg font-bold tracking-tight">Garage Management System</h1>
+            <h1 className="text-lg font-bold tracking-tight">WrenchBook</h1>
             <p className="text-sm text-muted-foreground">
               Job cards, invoices and customers in one place
             </p>

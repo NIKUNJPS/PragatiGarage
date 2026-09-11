@@ -3,12 +3,12 @@
 import * as React from 'react';
 import { Phone } from 'lucide-react';
 
-import { formatCurrency, formatDate, prettyVehicleNumber } from '@/lib/utils';
+import { formatCurrency, formatDate, initials, prettyVehicleNumber } from '@/lib/utils';
 import { BrandLogo } from '@/components/shared/brand-logo';
 import type { InvoiceView } from '@/lib/invoice-data';
 
 /**
- * On-screen invoice, styled to match the Pragati Auto bill book: centred logo +
+ * On-screen invoice, styled as a classic Indian garage bill book: centred logo +
  * tagline + phone, a customer/vehicle info box, a black-header
  * Sr.No / Particulars / Amount table, a TOTAL AMOUNT bar, and a
  * Thank You / Authorised Sign footer. The printed page and PDF mirror this.
@@ -59,7 +59,7 @@ export function InvoiceDocument({ invoice }: { invoice: InvoiceView }) {
             className="h-24 w-24 object-contain sm:h-28 sm:w-28"
             fallback={
               <div className="flex h-24 w-24 items-center justify-center rounded-lg bg-slate-900 text-2xl font-black italic text-white">
-                PA
+                {initials(g.name) || 'GM'}
               </div>
             }
           />

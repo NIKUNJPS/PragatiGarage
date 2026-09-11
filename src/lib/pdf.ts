@@ -4,7 +4,7 @@ import type { InvoiceView } from '@/lib/invoice-data';
 import { formatDate, round2 } from '@/lib/utils';
 
 /* --------------------------------------------------------------------------
- * A4 invoice PDF built to mirror the Pragati Auto bill book: centred logo +
+ * A4 invoice PDF styled as a classic Indian garage bill book: centred logo +
  * tagline + phone, a customer/vehicle info box, a black-header
  * Sr.No / Particulars / Amount table, a TOTAL AMOUNT bar, and a
  * Thank You / Authorised Sign footer, with red/black corner accents.
@@ -98,7 +98,7 @@ async function embedLogo(doc: PDFDocument, logoUrl: string | null): Promise<PDFI
 export async function renderInvoicePdf(invoice: InvoiceView): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.setTitle(`Invoice ${invoice.invoiceNumber}`);
-  doc.setProducer('Garage Management System');
+  doc.setProducer('WrenchBook');
   doc.setCreator(invoice.garage.name);
 
   const reg = await doc.embedFont(StandardFonts.Helvetica);

@@ -4,7 +4,7 @@ import { jwtVerify } from 'jose';
 const SESSION_COOKIE = 'gms_session';
 
 /** Pages reachable without a session. Everything else requires one. */
-const PUBLIC_PAGES = ['/login', '/forgot-password', '/reset-password', '/welcome'];
+const PUBLIC_PAGES = ['/', '/login', '/forgot-password', '/reset-password', '/welcome'];
 
 /** Public API + public invoice links (shared with customers over WhatsApp). */
 const PUBLIC_PREFIXES = [

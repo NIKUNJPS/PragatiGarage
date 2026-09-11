@@ -1,6 +1,6 @@
 # Your garage logo
 
-Save your Pragati Auto logo image in **this `public/` folder** with the exact
+Save your own garage's logo image in **this `public/` folder** with the exact
 name:
 
 ```
@@ -11,6 +11,9 @@ Once it is here, it shows automatically on:
 
 - the login / setup screens,
 - the top-left of the app header.
+
+Until you add one, the app shows the built-in **WrenchBook** placeholder mark
+(`public/logo.svg`).
 
 ## For invoices and PDFs (important)
 
@@ -23,5 +26,5 @@ So also upload the same image once in the app:
 
 That stores it with your garage profile so every invoice and job card carries it.
 
-> Tip: a square PNG around 400×400px looks best. The provided logo has a black
-> background, so it is shown on a black tile to look clean.
+> Tip: a square PNG around 400×400px looks best. It is shown on a black/dark
+> tile, so a logo with a transparent or light background works best.

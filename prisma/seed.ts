@@ -14,9 +14,11 @@ import { randomBytes } from 'crypto';
 const prisma = new PrismaClient();
 
 // Single-login app: one owner (ADMIN) account, configured via env.
-const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL || 'admin@garage.com';
-const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || 'Admin@123';
-const ADMIN_NAME = process.env.SEED_ADMIN_NAME || 'Ramesh Raskar';
+// These defaults are the public demo credentials shown on the landing page
+// and login screen - keep prisma/seed.ts, .env.example and src/lib/demo.ts in sync.
+const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL || 'demo@wrenchbook.app';
+const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || 'Demo@1234';
+const ADMIN_NAME = process.env.SEED_ADMIN_NAME || 'Demo Owner';
 
 const D = (n: number) => new Prisma.Decimal(n.toFixed(2));
 const daysAgo = (days: number) => {
@@ -47,18 +49,18 @@ async function main() {
     update: {},
     create: {
       id: 'garage',
-      name: 'Pragati Auto - Raskar and Sons',
+      name: 'Shree Automotive Works (Demo Garage)',
       address: 'Shop 14, MG Road, Near Bus Stand, Pune, Maharashtra 411001',
       phone: '02041234567',
       whatsappNumber: '919876543210',
       gstNumber: '27ABCDE1234F1Z5',
-      email: 'pragatiauto@example.com',
+      email: 'demo@wrenchbook.app',
       currency: 'INR',
       invoicePrefix: 'INV-{YYYY}-',
       jobCardPrefix: 'JC-{YYYY}-',
       defaultTaxRate: D(0),
       invoiceTerms:
-        'Thank you for choosing Pragati Auto (Raskar and Sons). Goods once sold are not returnable. Warranty as per manufacturer policy.',
+        'Thank you for choosing Shree Automotive Works. Goods once sold are not returnable. Warranty as per manufacturer policy.',
       setupCompleted: true,
     },
   });

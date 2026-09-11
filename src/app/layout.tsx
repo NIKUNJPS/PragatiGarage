@@ -5,12 +5,12 @@ import { Providers } from '@/app/providers';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Garage Management System',
-    template: '%s · Garage Management',
+    default: 'WrenchBook - Garage Management Software',
+    template: '%s · WrenchBook',
   },
   description:
-    'Customers, vehicles, job cards, invoices and WhatsApp sharing for bike and car garages.',
-  applicationName: 'Garage Management System',
+    'WrenchBook is garage management software for bike and car workshops: customers, vehicles, job cards, invoices and one-click WhatsApp sharing, all in one place.',
+  applicationName: 'WrenchBook',
   formatDetection: { telephone: false },
 };
 

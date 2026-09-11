@@ -1,6 +1,6 @@
 <!--
 ================================================================================
- GARAGE MANAGEMENT SYSTEM — ASSUMPTIONS & DECISIONS
+ WRENCHBOOK — ASSUMPTIONS & DECISIONS
 ================================================================================
 Built end-to-end (database + API + auth + UI) as specified. Where the brief left
 room for judgement, these decisions were made so the app runs with zero paid
@@ -47,12 +47,16 @@ setup and stays simple for non-technical garage staff:
 ================================================================================
 -->
 
-# Garage Management System
+# WrenchBook
 
-A complete, production-ready web app for small and medium vehicle garages (bikes
-and cars) to manage **customers, vehicles, job cards, invoices, and WhatsApp
-invoice sharing** — designed to be fast, mobile-friendly, and usable by
-non-technical garage staff.
+A complete, production-ready garage management web app for small and medium
+vehicle garages (bikes and cars) to manage **customers, vehicles, job cards,
+invoices, and WhatsApp invoice sharing** — designed to be fast, mobile-friendly,
+and usable by non-technical garage staff.
+
+A public marketing **landing page** lives at `/` with a full feature overview
+and a **live demo login** (see below) so the app can be shown to prospective
+clients without giving them a real account.
 
 > **End-to-end flow:** Login → Add customer → Add vehicle → Create job card →
 > Mark completed → Generate invoice → Download PDF → Share on WhatsApp.
@@ -106,12 +110,15 @@ Open **http://localhost:3000** and sign in with the demo credentials below.
 
 This is a **single-login** app — one owner (admin) account, configured via the
 `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` environment variables and created by
-`npm run db:seed`. The default demo values are `admin@garage.com` / `Admin@123`.
-The owner can change their password anytime in **Settings → Account & Password**.
-Additional logins are disabled by design.
+`npm run db:seed`. The default demo values are `demo@wrenchbook.app` /
+`Demo@1234` — the same credentials shown on the landing page (`/`) and the
+login screen. The owner can change their password anytime in **Settings →
+Account & Password**. Additional logins are disabled by design.
 
-The seed also loads a demo garage (**Pragati Auto – Raskar and Sons**) with a few
-customers, vehicles and invoices so the app is explorable immediately.
+The seed also loads a demo garage (**Shree Automotive Works**) with a few
+customers, vehicles and invoices so the app is explorable immediately. To
+rebrand the demo credentials, update `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD`
+in `.env`, `prisma/seed.ts`'s fallbacks, and `src/lib/demo.ts` together.
 
 ### Add your logo
 

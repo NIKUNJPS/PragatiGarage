@@ -1,4 +1,4 @@
-# Deploying your Garage Management System — cheapest reliable setup
+# Deploying WrenchBook — cheapest reliable setup
 
 **Short answer: Vercel (free) + Neon (free PostgreSQL) = ₹0 / month.**
 No separate storage bill, because your logo is stored inside the database (it's
