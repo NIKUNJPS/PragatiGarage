@@ -1,45 +1,59 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480" width="480" height="480" role="img" aria-label="WrenchBook - Garage Management Software">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480" width="480" height="480" role="img" aria-label="Pragati Auto - Raskar and Sons">
   <defs>
-    <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
+    <linearGradient id="pa-metal" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="0.45" stop-color="#dbe6fb"/>
-      <stop offset="0.55" stop-color="#8fa3d9"/>
-      <stop offset="1" stop-color="#c9d6f0"/>
+      <stop offset="0.40" stop-color="#e8ecf2"/>
+      <stop offset="0.54" stop-color="#8d939c"/>
+      <stop offset="0.74" stop-color="#dfe4ea"/>
+      <stop offset="1" stop-color="#9ba2ac"/>
+    </linearGradient>
+    <linearGradient id="pa-red" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4323c"/>
+      <stop offset="1" stop-color="#c10e18"/>
     </linearGradient>
   </defs>
 
-  <!-- dark navy rounded background -->
-  <rect width="480" height="480" rx="60" fill="#0a0e1a"/>
+  <rect width="480" height="480" rx="56" fill="#000000"/>
 
-  <!-- wrench mark (outline, matches the app's favicon glyph) -->
-  <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
-        fill="none" stroke="url(#metal)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"
-        transform="translate(168 70) scale(6)"/>
-
-  <!-- WRENCH -->
-  <text x="240" y="292" text-anchor="middle" font-family="Arial Black, Arial, sans-serif"
-        font-weight="900" font-style="italic" font-size="80" letter-spacing="-2"
-        fill="url(#metal)">WRENCH</text>
-
-  <!-- blue accent dashes -->
-  <g fill="#2f6fed">
-    <rect x="70" y="326" width="60" height="9" rx="4.5"/>
-    <rect x="86" y="342" width="44" height="8" rx="4"/>
-    <rect x="350" y="326" width="60" height="9" rx="4.5"/>
-    <rect x="350" y="342" width="44" height="8" rx="4"/>
-  </g>
-
-  <!-- BOOK -->
-  <text x="240" y="350" text-anchor="middle" font-family="Arial Black, Arial, sans-serif"
-        font-weight="900" font-style="italic" font-size="52" letter-spacing="2"
-        fill="#2f6fed">BOOK</text>
-
-  <!-- GARAGE MANAGEMENT SOFTWARE -->
+  <!-- car silhouette mark -->
   <g>
-    <rect x="60" y="388" width="34" height="4" rx="2" fill="#2f6fed"/>
-    <rect x="386" y="388" width="34" height="4" rx="2" fill="#2f6fed"/>
-    <text x="240" y="396" text-anchor="middle" font-family="Arial, sans-serif"
-          font-weight="700" font-size="19" letter-spacing="3.5"
-          fill="url(#metal)">GARAGE MANAGEMENT SOFTWARE</text>
+    <path d="M48 182 C 108 136 178 106 252 106 C 332 106 398 142 438 184"
+          fill="none" stroke="url(#pa-metal)" stroke-width="15" stroke-linecap="round"/>
+    <path d="M60 200 C 132 172 210 160 288 168 C 348 174 400 190 432 206"
+          fill="none" stroke="url(#pa-red)" stroke-width="13" stroke-linecap="round"/>
+    <path d="M244 166 L 356 124 L 302 168 Z" fill="url(#pa-metal)"/>
   </g>
+
+  <!-- PRAGATI -->
+  <text x="240" y="302" text-anchor="middle"
+        font-family="'Arial Black', 'Arial Bold', Arial, Helvetica, sans-serif"
+        font-weight="900" font-style="italic" font-size="88" letter-spacing="-1"
+        textLength="392" lengthAdjust="spacingAndGlyphs"
+        fill="url(#pa-metal)">PRAGATI</text>
+
+  <!-- AUTO with speed dashes -->
+  <g fill="url(#pa-red)">
+    <path d="M48 334 H 148 L 140 346 H 40 Z"/>
+    <path d="M66 352 H 148 L 140 364 H 58 Z"/>
+    <path d="M84 370 H 148 L 140 382 H 76 Z"/>
+    <path d="M340 334 H 440 L 432 346 H 332 Z"/>
+    <path d="M340 352 H 422 L 414 364 H 332 Z"/>
+    <path d="M340 370 H 404 L 396 382 H 332 Z"/>
+  </g>
+  <text x="240" y="378" text-anchor="middle"
+        font-family="'Arial Black', 'Arial Bold', Arial, Helvetica, sans-serif"
+        font-weight="900" font-style="italic" font-size="70" letter-spacing="1"
+        textLength="168" lengthAdjust="spacingAndGlyphs"
+        fill="url(#pa-red)">AUTO</text>
+
+  <!-- RASKAR AND SONS -->
+  <g fill="url(#pa-red)">
+    <rect x="34" y="418" width="52" height="6" rx="3"/>
+    <rect x="394" y="418" width="52" height="6" rx="3"/>
+  </g>
+  <text x="240" y="428" text-anchor="middle"
+        font-family="'Arial Black', 'Arial Bold', Arial, Helvetica, sans-serif"
+        font-weight="900" font-style="italic" font-size="27" letter-spacing="3"
+        textLength="286" lengthAdjust="spacingAndGlyphs"
+        fill="url(#pa-metal)">RASKAR AND SONS</text>
 </svg>

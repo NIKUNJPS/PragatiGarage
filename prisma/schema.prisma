@@ -1,7 +1,7 @@
-// WrenchBook - Prisma schema
+// Pragati Auto - Prisma schema
 // Target database: PostgreSQL (Supabase, Neon, or the bundled docker-compose
 // Postgres for local development). Set DATABASE_URL in .env, then run
-// `npm run setup` to create the tables and load demo data.
+// `npm run setup` to create the tables and the owner account.
 
 generator client {
   provider = "prisma-client-js"

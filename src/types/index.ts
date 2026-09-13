@@ -169,6 +169,10 @@ export interface DashboardStats {
   inProgressJobs: number;
   todayRevenue: number;
   monthRevenue: number;
+  todayPartsRevenue: number;
+  todayLabourRevenue: number;
+  monthPartsRevenue: number;
+  monthLabourRevenue: number;
   unpaidCount: number;
   unpaidAmount: number;
   currency: string;

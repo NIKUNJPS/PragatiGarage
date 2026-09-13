@@ -10,10 +10,11 @@ public/logo.png
 Once it is here, it shows automatically on:
 
 - the login / setup screens,
-- the top-left of the app header.
+- the top-left of the app header,
+- the landing page and the invoice preview.
 
-Until you add one, the app shows the built-in **WrenchBook** placeholder mark
-(`public/logo.svg`).
+Until you add one, the app shows the built-in **Pragati Auto** mark
+(`public/logo.svg`), which is a vector redraw of the same artwork.
 
 ## For invoices and PDFs (important)
 

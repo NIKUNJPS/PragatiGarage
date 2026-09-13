@@ -7,6 +7,8 @@ import {
   AlertCircle,
   Bike,
   ClipboardList,
+  HardHat,
+  Package,
   Plus,
   Receipt,
   TrendingUp,
@@ -73,8 +75,8 @@ export function DashboardView() {
 
       {/* --------------------------------------------------------- stat cards */}
       {isLoading ? (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-[104px] rounded-lg" />
           ))}
         </div>
@@ -87,7 +89,7 @@ export function DashboardView() {
         </Card>
       ) : data ? (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             <StatCard
               href="/customers"
               label="Total customers"
@@ -112,7 +114,23 @@ export function DashboardView() {
             />
             <StatCard
               href="/invoices?paymentStatus=PAID&range=today"
-              label="Today's revenue"
+              label="Spare parts revenue"
+              value={formatCurrency(data.todayPartsRevenue, data.currency)}
+              hint={`${formatCurrency(data.monthPartsRevenue, data.currency)} this month`}
+              icon={Package}
+              tone="sky"
+            />
+            <StatCard
+              href="/invoices?paymentStatus=PAID&range=today"
+              label="Labour revenue"
+              value={formatCurrency(data.todayLabourRevenue, data.currency)}
+              hint={`${formatCurrency(data.monthLabourRevenue, data.currency)} this month`}
+              icon={HardHat}
+              tone="rose"
+            />
+            <StatCard
+              href="/invoices?paymentStatus=PAID&range=today"
+              label="Total revenue"
               value={formatCurrency(data.todayRevenue, data.currency)}
               hint={`${formatCurrency(data.monthRevenue, data.currency)} this month`}
               icon={TrendingUp}
@@ -268,6 +286,8 @@ const TONES = {
   blue: 'bg-blue-50 text-blue-700',
   violet: 'bg-violet-50 text-violet-700',
   amber: 'bg-amber-50 text-amber-700',
+  sky: 'bg-sky-50 text-sky-700',
+  rose: 'bg-rose-50 text-rose-700',
   emerald: 'bg-emerald-50 text-emerald-700',
 };
 

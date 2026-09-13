@@ -27,6 +27,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { BRAND_LOGO_SRC } from '@/lib/brand';
 import { BrandLogo } from '@/components/shared/brand-logo';
 import { GlobalSearch } from '@/components/layout/global-search';
 import { SetupBanner } from '@/components/layout/setup-banner';
@@ -82,7 +83,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <Link href="/dashboard" className="flex min-w-0 items-center gap-2.5">
             <BrandLogo
-              src={garage.logoUrl || '/logo.svg'}
+              src={[garage.logoUrl, ...BRAND_LOGO_SRC]}
               alt={garage.name}
               className="h-8 w-8 shrink-0 rounded-md bg-black object-contain"
               fallback={

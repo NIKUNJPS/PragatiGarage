@@ -1,4 +1,4 @@
-# Deploying WrenchBook — cheapest reliable setup
+# Deploying Pragati Auto — cheapest reliable setup
 
 **Short answer: Vercel (free) + Neon (free PostgreSQL) = ₹0 / month.**
 No separate storage bill, because your logo is stored inside the database (it's
@@ -51,9 +51,9 @@ This handles a single garage's traffic comfortably on the free tiers.
 - Done — start adding customers, or use **Import past data** to bulk-load your
   old records.
 
-**5. (Optional) Load demo data**
-Run this once from your computer with the same `DATABASE_URL` to explore with
-sample data first: `npm run db:seed`.
+**5. (Optional) Create the owner account from the command line**
+Instead of the browser flow, set `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` and
+run `npm run db:seed` once from your computer with the same `DATABASE_URL`.
 
 ---
 

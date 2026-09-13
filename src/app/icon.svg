@@ -1,5 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-  <rect width="32" height="32" rx="7" fill="#0f4fb8"/>
-  <path fill="#ffffff" d="M22.7 12.3a4.6 4.6 0 0 1-5.9 5.9l-5 5a2 2 0 0 1-2.9-2.9l5-5a4.6 4.6 0 0 1 5.9-5.9l-2.3 2.3a1.4 1.4 0 0 0 2 2l2.3-2.3c.5.9.7 1.9.9 0.9z"/>
-  <circle cx="10.4" cy="21.6" r="1" fill="#0f4fb8"/>
+  <rect width="32" height="32" rx="7" fill="#000000"/>
+  <path d="M4.5 14.5 C 8 10.6 12 8.4 16 8.4 C 20 8.4 24 10.6 27.5 14.5"
+        fill="none" stroke="#e6eaf0" stroke-width="2.1" stroke-linecap="round"/>
+  <path d="M5.5 17.6 C 9.5 15.3 13.5 14.4 18 14.9 C 22 15.3 25.5 16.4 27 17.5"
+        fill="none" stroke="#d61420" stroke-width="1.9" stroke-linecap="round"/>
+  <text x="16" y="27" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif"
+        font-weight="900" font-style="italic" font-size="10" letter-spacing="0.5"
+        fill="#e6eaf0">PA</text>
 </svg>

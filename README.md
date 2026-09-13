@@ -1,6 +1,6 @@
 <!--
 ================================================================================
- WRENCHBOOK — ASSUMPTIONS & DECISIONS
+ PRAGATI AUTO — ASSUMPTIONS & DECISIONS
 ================================================================================
 Built end-to-end (database + API + auth + UI) as specified. Where the brief left
 room for judgement, these decisions were made so the app runs with zero paid
@@ -47,16 +47,15 @@ setup and stays simple for non-technical garage staff:
 ================================================================================
 -->
 
-# WrenchBook
+# Pragati Auto
 
 A complete, production-ready garage management web app for small and medium
 vehicle garages (bikes and cars) to manage **customers, vehicles, job cards,
 invoices, and WhatsApp invoice sharing** — designed to be fast, mobile-friendly,
 and usable by non-technical garage staff.
 
-A public marketing **landing page** lives at `/` with a full feature overview
-and a **live demo login** (see below) so the app can be shown to prospective
-clients without giving them a real account.
+A public **landing page** lives at `/` with a feature overview and a sign-in
+link; every other screen is behind the owner login.
 
 > **End-to-end flow:** Login → Add customer → Add vehicle → Create job card →
 > Mark completed → Generate invoice → Download PDF → Share on WhatsApp.
@@ -97,28 +96,26 @@ cp .env.example .env
 # 3. Start a local PostgreSQL (skip if you already have one)
 docker compose up -d
 
-# 4. Create the tables and load demo data
+# 4. Create the tables and the owner account
 npm run setup
 
 # 5. Run the app
 npm run dev
 ```
 
-Open **http://localhost:3000** and sign in with the demo credentials below.
+Open **http://localhost:3000** and sign in with the owner account below.
 
 ### Login (single owner account)
 
 This is a **single-login** app — one owner (admin) account, configured via the
 `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` environment variables and created by
-`npm run db:seed`. The default demo values are `demo@wrenchbook.app` /
-`Demo@1234` — the same credentials shown on the landing page (`/`) and the
-login screen. The owner can change their password anytime in **Settings →
-Account & Password**. Additional logins are disabled by design.
+`npm run db:seed` (seeding fails if they are not set). The owner can change
+their password anytime in **Settings → Account & Password**. Additional logins
+are disabled by design.
 
-The seed also loads a demo garage (**Shree Automotive Works**) with a few
-customers, vehicles and invoices so the app is explorable immediately. To
-rebrand the demo credentials, update `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD`
-in `.env`, `prisma/seed.ts`'s fallbacks, and `src/lib/demo.ts` together.
+On a fresh database with no accounts at all, the login screen offers a
+**Create owner account** flow at `/welcome` instead, so the app can also be set
+up entirely from the browser.
 
 ### Add your logo
 
@@ -161,7 +158,7 @@ fallback — see `.env.example` for the full annotated list.
 | `npm run setup`      | `db push` + generate + seed (one-shot local setup)      |
 | `npm run db:push`    | Sync the schema to the database (no migration history)  |
 | `npm run db:migrate` | Create a SQL migration                                  |
-| `npm run db:seed`    | Load demo data                                          |
+| `npm run db:seed`    | Create the owner account from env vars                  |
 | `npm run db:studio`  | Open Prisma Studio to browse the data                   |
 | `npm run db:reset`   | Wipe and reseed (destructive)                           |
 | `npm run typecheck`  | TypeScript check with no emit                           |
@@ -181,8 +178,8 @@ fallback — see `.env.example` for the full annotated list.
 4. **(Optional) Supabase Storage:** create a **public** bucket (default name
    `garage`) and set the three `SUPABASE_*` variables to host logos and PDFs.
 5. **Deploy.** On first visit you'll create the owner account and run the setup
-   wizard. To load demo data in production, run `npm run db:seed` against the
-   production `DATABASE_URL` from your machine.
+   wizard. Alternatively set `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` and run
+   `npm run db:seed` against the production `DATABASE_URL` from your machine.
 
 > **Pooled connections (Supabase/Neon):** use the pooled URL for `DATABASE_URL`
 > (append `?pgbouncer=true&connection_limit=1`) and set `DIRECT_URL` to the
@@ -259,7 +256,7 @@ fallback — see `.env.example` for the full annotated list.
 - [x] Public customer-facing invoice page
 - [x] Soft-delete/archive across records; toasts, loading/empty/error states
 - [x] Global search, mobile bottom-nav, responsive throughout
-- [x] Seed script with realistic demo data; deploy config for Vercel + Supabase/Neon
+- [x] Owner bootstrap seed script; deploy config for Vercel + Supabase/Neon
 
 **Known gaps / follow-ups for production**
 

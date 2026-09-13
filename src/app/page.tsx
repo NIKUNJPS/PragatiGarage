@@ -16,7 +16,7 @@ import {
   LayoutDashboard,
 } from 'lucide-react';
 
-import { DEMO_CREDENTIALS } from '@/lib/demo';
+import { BRAND_LOGO_SRC, BRAND_NAME, BRAND_SUBTITLE } from '@/lib/brand';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -26,7 +26,7 @@ const FEATURES = [
   {
     icon: LayoutDashboard,
     title: 'Dashboard',
-    body: "Live counts for customers, vehicles and active jobs, today's and this month's revenue, and your 10 most recent job cards at a glance.",
+    body: "Live counts for customers, vehicles and active jobs, spare parts / labour / total revenue for today and this month, and your 10 most recent job cards at a glance.",
   },
   {
     icon: Users,
@@ -84,7 +84,7 @@ const TRUST = [
 const FAQS = [
   {
     q: 'Do I need to install anything?',
-    a: 'No. WrenchBook runs in the browser on any phone, tablet or computer — nothing to download.',
+    a: 'No. It runs in the browser on any phone, tablet or computer — nothing to download.',
   },
   {
     q: 'What does the WhatsApp sharing cost?',
@@ -108,8 +108,8 @@ export default function LandingPage() {
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2.5">
             <BrandLogo
-              src="/logo.svg"
-              alt="WrenchBook"
+              src={BRAND_LOGO_SRC}
+              alt={BRAND_NAME}
               className="h-9 w-9 shrink-0 rounded-md bg-black object-contain"
               fallback={
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
@@ -117,23 +117,19 @@ export default function LandingPage() {
                 </span>
               }
             />
-            <span className="text-base font-bold tracking-tight">WrenchBook</span>
+            <span className="text-base font-bold tracking-tight">{BRAND_NAME}</span>
           </Link>
 
           <nav className="ml-6 hidden items-center gap-6 text-sm font-medium text-muted-foreground md:flex">
             <a href="#features" className="hover:text-foreground">Features</a>
             <a href="#workflow" className="hover:text-foreground">How it works</a>
-            <a href="#demo" className="hover:text-foreground">Live demo</a>
             <a href="#faq" className="hover:text-foreground">FAQ</a>
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
-            <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
-              <Link href="/login">Sign in</Link>
-            </Button>
             <Button asChild size="sm">
               <Link href="/login">
-                Try live demo <ArrowRight />
+                Sign in <ArrowRight />
               </Link>
             </Button>
           </div>
@@ -145,20 +141,20 @@ export default function LandingPage() {
         <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-2 lg:items-center lg:py-24">
           <div>
             <Badge variant="secondary" className="mb-4">
-              <CheckCircle2 className="h-3 w-3" /> Live demo available — no signup needed
+              <CheckCircle2 className="h-3 w-3" /> {BRAND_NAME} · {BRAND_SUBTITLE}
             </Badge>
             <h1 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl lg:text-5xl">
               Run your garage from <span className="text-primary">one screen</span>.
             </h1>
             <p className="mt-4 max-w-xl text-base text-muted-foreground sm:text-lg">
-              WrenchBook is garage management software for bike and car workshops — customers,
+              {BRAND_NAME} garage management software for bike and car workshops — customers,
               vehicles, job cards, invoices and one-click WhatsApp billing, built to be fast on a
               phone at the service counter.
             </p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Button asChild size="xl">
                 <Link href="/login">
-                  Try live demo <ArrowRight />
+                  Sign in <ArrowRight />
                 </Link>
               </Button>
               <Button asChild size="xl" variant="outline">
@@ -185,14 +181,16 @@ export default function LandingPage() {
                 <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
                 <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
                 <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-                <span className="ml-2 text-xs text-muted-foreground">WrenchBook — Dashboard</span>
+                <span className="ml-2 text-xs text-muted-foreground">{BRAND_NAME} — Dashboard</span>
               </div>
-              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
                 {[
                   ['Customers', '128'],
                   ['Vehicles', '164'],
                   ['Active jobs', '12'],
-                  ["Today's revenue", '₹8,450'],
+                  ['Spare parts revenue', '₹5,200'],
+                  ['Labour revenue', '₹3,250'],
+                  ['Total revenue', '₹8,450'],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-lg border bg-secondary/40 p-2.5">
                     <p className="text-[11px] text-muted-foreground">{label}</p>
@@ -224,7 +222,7 @@ export default function LandingPage() {
               </div>
             </div>
             <p className="mt-2 text-center text-xs text-muted-foreground">
-              Illustrative preview — explore the real thing in the live demo below.
+              Illustrative preview — sign in to see your own numbers.
             </p>
           </div>
         </div>
@@ -276,57 +274,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --------------------------------------------------------------- demo */}
-      <section id="demo" className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
-        <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-          <div className="grid gap-0 lg:grid-cols-2">
-            <div className="p-7 sm:p-10">
-              <Badge variant="secondary" className="mb-3">Try it now</Badge>
-              <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                Explore the live demo — no signup needed
-              </h2>
-              <p className="mt-3 text-muted-foreground">
-                The demo is pre-loaded with a sample garage, customers, vehicles, job cards and
-                invoices, so every screen has real content to click through.
-              </p>
-              <ul className="mt-5 space-y-2.5 text-sm">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Full dashboard with live sample data
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Create a job card and generate a PDF invoice
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Try the one-click WhatsApp share flow
-                </li>
-              </ul>
-              <p className="mt-5 text-xs text-muted-foreground">
-                This is a shared demo environment — please don't enter real customer information.
-              </p>
-            </div>
-
-            <div className="flex flex-col justify-center gap-4 bg-primary/[0.04] p-7 sm:p-10">
-              <p className="text-sm font-semibold text-muted-foreground">Demo login</p>
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3">
-                  <span className="text-xs text-muted-foreground">Email</span>
-                  <code className="font-mono text-sm font-semibold">{DEMO_CREDENTIALS.email}</code>
-                </div>
-                <div className="flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3">
-                  <span className="text-xs text-muted-foreground">Password</span>
-                  <code className="font-mono text-sm font-semibold">{DEMO_CREDENTIALS.password}</code>
-                </div>
-              </div>
-              <Button asChild size="lg" className="mt-1">
-                <Link href="/login">
-                  Launch the live demo <ArrowRight />
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* --------------------------------------------------------------- trust */}
       <section className="border-y bg-secondary/30">
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
@@ -360,15 +307,14 @@ export default function LandingPage() {
       <section className="bg-primary">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-14 text-center sm:px-6">
           <h2 className="text-2xl font-bold tracking-tight text-primary-foreground sm:text-3xl">
-            Ready to see it running your garage?
+            Ready to get back to work?
           </h2>
           <p className="max-w-xl text-primary-foreground/85">
-            Sign in with the demo credentials above and click through the whole flow in under five
-            minutes.
+            Sign in to open today&apos;s job cards, raise an invoice and share it on WhatsApp.
           </p>
           <Button asChild size="xl" variant="secondary">
             <Link href="/login">
-              Try live demo <ArrowRight />
+              Sign in <ArrowRight />
             </Link>
           </Button>
         </div>
@@ -380,8 +326,8 @@ export default function LandingPage() {
           <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
             <div className="flex items-center gap-2.5">
               <BrandLogo
-                src="/logo.svg"
-                alt="WrenchBook"
+                src={BRAND_LOGO_SRC}
+                alt={BRAND_NAME}
                 className="h-8 w-8 shrink-0 rounded-md bg-black object-contain"
                 fallback={
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
@@ -390,22 +336,21 @@ export default function LandingPage() {
                 }
               />
               <div>
-                <p className="text-sm font-bold">WrenchBook</p>
-                <p className="text-xs text-muted-foreground">Garage management software</p>
+                <p className="text-sm font-bold">{BRAND_NAME}</p>
+                <p className="text-xs text-muted-foreground">{BRAND_SUBTITLE}</p>
               </div>
             </div>
 
             <nav className="flex flex-wrap gap-5 text-sm text-muted-foreground">
               <a href="#features" className="hover:text-foreground">Features</a>
               <a href="#workflow" className="hover:text-foreground">How it works</a>
-              <a href="#demo" className="hover:text-foreground">Live demo</a>
               <a href="#faq" className="hover:text-foreground">FAQ</a>
               <Link href="/login" className="hover:text-foreground">Sign in</Link>
             </nav>
           </div>
 
           <div className="mt-8 flex flex-col gap-1 border-t pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-            <p>© {new Date().getFullYear()} WrenchBook. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.</p>
             <p>Built with Next.js, PostgreSQL & Tailwind CSS.</p>
           </div>
         </div>

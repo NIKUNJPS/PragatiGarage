@@ -98,7 +98,7 @@ async function embedLogo(doc: PDFDocument, logoUrl: string | null): Promise<PDFI
 export async function renderInvoicePdf(invoice: InvoiceView): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.setTitle(`Invoice ${invoice.invoiceNumber}`);
-  doc.setProducer('WrenchBook');
+  doc.setProducer('Pragati Auto');
   doc.setCreator(invoice.garage.name);
 
   const reg = await doc.embedFont(StandardFonts.Helvetica);

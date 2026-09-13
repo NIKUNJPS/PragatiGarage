@@ -5,12 +5,12 @@ import { Providers } from '@/app/providers';
 
 export const metadata: Metadata = {
   title: {
-    default: 'WrenchBook - Garage Management Software',
-    template: '%s · WrenchBook',
+    default: 'Pragati Auto - Garage Management Software',
+    template: '%s · Pragati Auto',
   },
   description:
-    'WrenchBook is garage management software for bike and car workshops: customers, vehicles, job cards, invoices and one-click WhatsApp sharing, all in one place.',
-  applicationName: 'WrenchBook',
+    'Pragati Auto (Raskar and Sons) garage management: customers, vehicles, job cards, invoices and one-click WhatsApp sharing, all in one place.',
+  applicationName: 'Pragati Auto',
   formatDetection: { telephone: false },
 };
 

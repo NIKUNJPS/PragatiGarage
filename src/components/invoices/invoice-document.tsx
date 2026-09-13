@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Phone } from 'lucide-react';
 
 import { formatCurrency, formatDate, initials, prettyVehicleNumber } from '@/lib/utils';
+import { BRAND_LOGO_SRC } from '@/lib/brand';
 import { BrandLogo } from '@/components/shared/brand-logo';
 import type { InvoiceView } from '@/lib/invoice-data';
 
@@ -54,7 +55,7 @@ export function InvoiceDocument({ invoice }: { invoice: InvoiceView }) {
         {/* ------------------------------------------------------- header */}
         <div className="flex flex-col items-center text-center">
           <BrandLogo
-            src={g.logoUrl || '/logo.svg'}
+            src={[g.logoUrl, ...BRAND_LOGO_SRC]}
             alt={g.name}
             className="h-24 w-24 object-contain sm:h-28 sm:w-28"
             fallback={
