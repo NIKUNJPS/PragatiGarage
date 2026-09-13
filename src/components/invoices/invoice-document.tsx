@@ -128,12 +128,17 @@ export function InvoiceDocument({ invoice }: { invoice: InvoiceView }) {
         </div>
 
         {/* --------------------------------------------------------- table */}
-        <table className="mt-4 w-full border-collapse text-sm">
+        <div className="mt-4 overflow-x-auto">
+        <table className="w-full border-collapse text-xs sm:text-sm">
           <thead>
             <tr className="bg-slate-900 text-white print-keep-color">
-              <th className="w-14 border border-slate-900 px-2 py-2 text-center font-bold">Sr. No.</th>
-              <th className="border border-slate-900 px-3 py-2 text-left font-bold">Particulars</th>
-              <th className="w-32 border border-slate-900 px-3 py-2 text-right font-bold">
+              <th className="w-10 border border-slate-900 px-1.5 py-2 text-center font-bold sm:w-14 sm:px-2">
+                Sr.
+              </th>
+              <th className="border border-slate-900 px-2 py-2 text-left font-bold sm:px-3">
+                Particulars
+              </th>
+              <th className="w-24 border border-slate-900 px-2 py-2 text-right font-bold sm:w-32 sm:px-3">
                 Amount (₹)
               </th>
             </tr>
@@ -141,16 +146,13 @@ export function InvoiceDocument({ invoice }: { invoice: InvoiceView }) {
           <tbody>
             {groups.map((group) => (
               <React.Fragment key={group.kind}>
-                {/* section header (bifurcation) */}
+                {/* section header (bifurcation) - label only */}
                 <tr className="bg-slate-100 print-keep-color">
                   <td
-                    colSpan={2}
+                    colSpan={3}
                     className="border border-slate-300 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-700"
                   >
                     {group.label}
-                  </td>
-                  <td className="border border-slate-300 px-3 py-1.5 text-right text-xs font-semibold text-slate-600">
-                    {money(group.total)}
                   </td>
                 </tr>
                 {group.items.map((item) => {
@@ -169,6 +171,16 @@ export function InvoiceDocument({ invoice }: { invoice: InvoiceView }) {
                     </tr>
                   );
                 })}
+                {/* section subtotal - AFTER the items */}
+                <tr className="bg-slate-50 print-keep-color">
+                  <td className="border border-slate-300 px-2 py-1.5" />
+                  <td className="border border-slate-300 px-3 py-1.5 text-right text-xs font-semibold italic text-slate-600">
+                    {group.label} total
+                  </td>
+                  <td className="border border-slate-300 px-3 py-1.5 text-right text-xs font-bold text-slate-800">
+                    {money(group.total)}
+                  </td>
+                </tr>
               </React.Fragment>
             ))}
             {groups.length === 0 && (
@@ -183,34 +195,37 @@ export function InvoiceDocument({ invoice }: { invoice: InvoiceView }) {
             )}
           </tbody>
         </table>
+        </div>
 
-        {/* --------------------------------------------------------- totals */}
-        <div className="mt-3 flex flex-col items-end gap-2">
-          <dl className="w-full max-w-xs space-y-1 text-sm">
-            <TotalRow label="Subtotal" value={money(invoice.subtotal)} />
-            {invoice.discount > 0 && (
-              <TotalRow label="Discount" value={`- ${money(invoice.discount)}`} />
-            )}
-            {(invoice.taxRate > 0 || invoice.tax > 0) && (
-              <TotalRow label={`GST (${invoice.taxRate}%)`} value={money(invoice.tax)} />
-            )}
-          </dl>
+        {/* ----------------------------------------------- totals (below all) */}
+        <div className="mt-4 flex justify-end">
+          <div className="w-full space-y-2 sm:max-w-sm">
+            <dl className="space-y-1 text-sm">
+              <TotalRow label="Subtotal" value={money(invoice.subtotal)} />
+              {invoice.discount > 0 && (
+                <TotalRow label="Discount" value={`- ${money(invoice.discount)}`} />
+              )}
+              {(invoice.taxRate > 0 || invoice.tax > 0) && (
+                <TotalRow label={`GST (${invoice.taxRate}%)`} value={money(invoice.tax)} />
+              )}
+            </dl>
 
-          <div className="flex w-full max-w-md items-stretch overflow-hidden rounded-md border-2 border-slate-900 print-keep-color">
-            <div className="flex-1 bg-slate-900 px-4 py-2.5 text-base font-black uppercase tracking-wide text-white">
-              Total Amount
+            <div className="flex items-stretch overflow-hidden rounded-md border-2 border-slate-900 print-keep-color">
+              <div className="flex-1 bg-slate-900 px-3 py-2.5 text-sm font-black uppercase tracking-wide text-white sm:px-4 sm:text-base">
+                Total Amount
+              </div>
+              <div className="flex items-center justify-end whitespace-nowrap px-3 py-2.5 text-base font-black sm:px-4 sm:text-lg">
+                ₹ {money(invoice.totalAmount).replace(/^₹\s*/, '')}
+              </div>
             </div>
-            <div className="flex items-center justify-end px-4 py-2.5 text-lg font-black">
-              ₹ {money(invoice.totalAmount).replace(/^₹\s*/, '')}
-            </div>
+
+            {invoice.paymentStatus === 'PAID' && invoice.paidAt && (
+              <p className="text-right text-xs font-medium text-emerald-700">
+                Paid on {formatDate(invoice.paidAt)}
+                {invoice.paymentMethod ? ` (${invoice.paymentMethod})` : ''}
+              </p>
+            )}
           </div>
-
-          {invoice.paymentStatus === 'PAID' && invoice.paidAt && (
-            <p className="text-xs font-medium text-emerald-700">
-              Paid on {formatDate(invoice.paidAt)}
-              {invoice.paymentMethod ? ` (${invoice.paymentMethod})` : ''}
-            </p>
-          )}
         </div>
 
         {/* --------------------------------------------- work notes (compact) */}

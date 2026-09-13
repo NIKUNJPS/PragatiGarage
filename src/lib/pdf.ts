@@ -272,13 +272,23 @@ export async function renderInvoicePdf(invoice: InvoiceView): Promise<Uint8Array
     y -= h;
   };
 
-  // section sub-header row inside the table (bifurcation label + section total)
-  const drawSectionHeader = (label: string, sectionTotal: string) => {
+  // section sub-header row inside the table (bifurcation label only)
+  const drawSectionHeader = (label: string) => {
     const h = 15;
     page.drawRectangle({ x: M, y: y - h, width: tableW, height: h, color: rgb(0.93, 0.94, 0.96) });
     page.drawRectangle({ x: M, y: y - h, width: tableW, height: h, borderColor: LINE, borderWidth: 0.7 });
     text(label.toUpperCase(), M + 8, y - 11, 8.5, { font: bold, color: INK });
-    rightText(sectionTotal, right - 6, y - 11, 8.5, { font: bold, color: MUTED });
+    y -= h;
+  };
+
+  // section subtotal row drawn AFTER the section's items
+  const drawSectionSubtotal = (label: string, sectionTotal: string) => {
+    const h = 15;
+    page.drawRectangle({ x: M, y: y - h, width: tableW, height: h, color: rgb(0.96, 0.97, 0.98) });
+    page.drawRectangle({ x: M, y: y - h, width: tableW, height: h, borderColor: LINE, borderWidth: 0.7 });
+    page.drawLine({ start: { x: amtX, y }, end: { x: amtX, y: y - h }, thickness: 0.7, color: LINE });
+    rightText(`${label} total`, amtX - 8, y - 11, 8, { font: bold, color: MUTED });
+    rightText(sectionTotal, right - 6, y - 11, 8.5, { font: bold, color: INK });
     y -= h;
   };
 
@@ -301,7 +311,7 @@ export async function renderInvoicePdf(invoice: InvoiceView): Promise<Uint8Array
       y = H - M - 20;
       drawHeader();
     }
-    drawSectionHeader(section.label, money(sectionTotal, cur));
+    drawSectionHeader(section.label);
 
     for (const item of items) {
       if (y < 190) {
@@ -317,6 +327,13 @@ export async function renderInvoicePdf(invoice: InvoiceView): Promise<Uint8Array
       drawRow(`${serial}.`, p, money(item.total, cur), rowIndex);
       rowIndex += 1;
     }
+
+    if (y < 190) {
+      newPage();
+      y = H - M - 20;
+      drawHeader();
+    }
+    drawSectionSubtotal(section.label, money(sectionTotal, cur));
   }
 
   /* -------------------------------------------------------------- totals */
