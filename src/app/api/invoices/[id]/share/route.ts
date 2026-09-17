@@ -68,8 +68,12 @@ export const POST = withAuth(async (req, { params }) => {
       const pdf = await renderInvoicePdf(invoice);
       const uploaded = await uploadInvoicePdf(invoice.invoiceNumber, pdf);
       if (uploaded) {
-        await prisma.invoice.update({ where: { id: invoice.id }, data: { pdfUrl: uploaded } });
-        invoice = { ...invoice, pdfUrl: uploaded };
+        // Only keep the file if no payment or edit changed the invoice meanwhile.
+        const saved = await prisma.invoice.updateMany({
+          where: { id: invoice.id, updatedAt: new Date(invoice.updatedAt) },
+          data: { pdfUrl: uploaded },
+        });
+        if (saved.count > 0) invoice = { ...invoice, pdfUrl: uploaded };
       }
     } catch (error) {
       // Without object storage the public /i/<token> page serves the invoice and

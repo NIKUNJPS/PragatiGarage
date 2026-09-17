@@ -1,4 +1,4 @@
-import { CheckCircle2, CircleDot, Clock, Wrench } from 'lucide-react';
+import { CheckCircle2, CircleDashed, CircleDot, Clock, Wrench } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import type { JobStatus, PaymentStatus } from '@/types';
@@ -24,6 +24,13 @@ export function JobStatusBadge({ status }: { status: JobStatus }) {
 }
 
 export function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
+  if (status === 'PARTIAL') {
+    return (
+      <Badge variant="partial">
+        <CircleDashed aria-hidden /> Partial
+      </Badge>
+    );
+  }
   return status === 'PAID' ? (
     <Badge variant="paid">
       <CheckCircle2 aria-hidden /> Paid

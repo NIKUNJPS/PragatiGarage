@@ -35,6 +35,13 @@ enum JobStatus {
 enum PaymentStatus {
   PAID
   UNPAID
+  PARTIAL
+}
+
+enum DiscountType {
+  NONE
+  PERCENT
+  FIXED
 }
 
 enum InvoiceItemKind {
@@ -59,6 +66,9 @@ model User {
   vehicles    Vehicle[]            @relation("VehicleCreatedBy")
   jobCards    JobCard[]            @relation("JobCardCreatedBy")
   invoices    Invoice[]            @relation("InvoiceCreatedBy")
+  payments    Payment[]            @relation("PaymentCreatedBy")
+  paymentEdits Payment[]           @relation("PaymentUpdatedBy")
+  auditLogs   AuditLog[]
 
   @@index([email])
   @@index([role])
@@ -118,6 +128,7 @@ model Customer {
   vehicles  Vehicle[]
   jobCards  JobCard[]
   invoices  Invoice[]
+  payments  Payment[]
 
   @@index([name])
   @@index([mobileNumber])
@@ -221,23 +232,37 @@ model ServiceCharge {
   @@index([jobCardId])
 }
 
+/// Every money column is written only by the server-side billing calculator
+/// (src/lib/billing.ts via src/lib/invoice-service.ts) - never from client totals.
 model Invoice {
   id            String        @id @default(cuid())
   invoiceNumber String        @unique
   publicToken   String        @unique
   jobCardId     String        @unique
   customerId    String
+  /// Gross amount: sum of all line totals, before discount and tax.
   subtotal      Decimal       @default(0) @db.Decimal(12, 2)
   taxRate       Decimal       @default(0) @db.Decimal(5, 2)
   tax           Decimal       @default(0) @db.Decimal(12, 2)
+  discountType  DiscountType  @default(NONE)
+  /// What the user entered: a percentage for PERCENT, an amount for FIXED.
+  discountValue Decimal       @default(0) @db.Decimal(12, 2)
+  /// Resolved discount amount.
   discount      Decimal       @default(0) @db.Decimal(12, 2)
+  /// Final payable amount (subtotal - discount + tax).
   totalAmount   Decimal       @default(0) @db.Decimal(12, 2)
+  /// Sum of non-voided payments.
+  amountPaid    Decimal       @default(0) @db.Decimal(12, 2)
+  /// max(totalAmount - amountPaid, 0).
+  balanceDue    Decimal       @default(0) @db.Decimal(12, 2)
   paymentStatus PaymentStatus @default(UNPAID)
+  /// Method of the most recent payment, kept for list/PDF display.
   paymentMethod String?
   notes         String?
   pdfUrl        String?
   isArchived    Boolean       @default(false)
   createdById   String?
+  /// When the invoice became fully paid; null while anything is outstanding.
   paidAt        DateTime?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -246,6 +271,8 @@ model Invoice {
   customer  Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
   createdBy User?         @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   items     InvoiceItem[]
+  payments  Payment[]
+  auditLogs AuditLog[]
 
   @@index([invoiceNumber])
   @@index([customerId])
@@ -269,4 +296,62 @@ model InvoiceItem {
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
+}
+
+/// Money received against an invoice. Never deleted - a mistaken entry is voided
+/// so the financial history stays intact.
+model Payment {
+  id                  String    @id @default(cuid())
+  invoiceId           String
+  customerId          String
+  amount              Decimal   @db.Decimal(12, 2)
+  method              String
+  paidAt              DateTime  @default(now())
+  reference           String?
+  notes               String?
+  /// Client-generated per submission; a retried/double-clicked submit returns the
+  /// original payment instead of recording it twice.
+  idempotencyKey      String?   @unique
+  isVoided            Boolean   @default(false)
+  voidedAt            DateTime?
+  voidReason          String?
+  confirmationSentAt  DateTime?
+  confirmationChannel String?
+  confirmationCount   Int       @default(0)
+  createdById         String?
+  updatedById         String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  customer  Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdBy User?    @relation("PaymentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?    @relation("PaymentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+  @@index([customerId])
+  @@index([paidAt])
+  @@index([isVoided])
+}
+
+/// Append-only log of financial changes (invoice created/edited, discount changed,
+/// payments recorded/voided, status changes, confirmations sent).
+model AuditLog {
+  id         String   @id @default(cuid())
+  entityType String
+  entityId   String
+  /// Kept after an invoice is deleted (SetNull) so the deletion itself stays on record.
+  invoiceId  String?
+  action     String
+  oldValue   Json?
+  newValue   Json?
+  userId     String?
+  createdAt  DateTime @default(now())
+
+  invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
 }

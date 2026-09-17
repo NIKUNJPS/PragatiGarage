@@ -6,6 +6,8 @@ import { Phone } from 'lucide-react';
 import { formatCurrency, formatDate, initials, prettyVehicleNumber } from '@/lib/utils';
 import { BRAND_LOGO_SRC } from '@/lib/brand';
 import { BrandLogo } from '@/components/shared/brand-logo';
+import { discountLabel } from '@/lib/billing';
+import { fromPaise, toPaise } from '@/lib/money';
 import type { InvoiceView } from '@/lib/invoice-data';
 
 /**
@@ -35,9 +37,9 @@ export function InvoiceDocument({ invoice }: { invoice: InvoiceView }) {
   const groups = SECTIONS.map((s) => ({
     ...s,
     items: invoice.items.filter((i) => i.kind === s.kind),
-    total: invoice.items
-      .filter((i) => i.kind === s.kind)
-      .reduce((sum, i) => sum + i.total, 0),
+    total: fromPaise(
+      invoice.items.filter((i) => i.kind === s.kind).reduce((sum, i) => sum + toPaise(i.total), 0),
+    ),
   })).filter((g2) => g2.items.length > 0);
 
   // Continuous serial number across all sections.
@@ -100,10 +102,16 @@ export function InvoiceDocument({ invoice }: { invoice: InvoiceView }) {
             className={`rounded px-2 py-0.5 text-[11px] font-bold uppercase print-keep-color ${
               invoice.paymentStatus === 'PAID'
                 ? 'bg-emerald-600 text-white'
-                : 'bg-red-600 text-white'
+                : invoice.paymentStatus === 'PARTIAL'
+                  ? 'bg-amber-500 text-white'
+                  : 'bg-red-600 text-white'
             }`}
           >
-            {invoice.paymentStatus === 'PAID' ? 'Paid' : 'Payment Due'}
+            {invoice.paymentStatus === 'PAID'
+              ? 'Paid'
+              : invoice.paymentStatus === 'PARTIAL'
+                ? 'Partially paid'
+                : 'Payment Due'}
           </span>
         </div>
 
@@ -204,7 +212,10 @@ export function InvoiceDocument({ invoice }: { invoice: InvoiceView }) {
             <dl className="space-y-1 text-sm">
               <TotalRow label="Subtotal" value={money(invoice.subtotal)} />
               {invoice.discount > 0 && (
-                <TotalRow label="Discount" value={`- ${money(invoice.discount)}`} />
+                <TotalRow
+                  label={discountLabel(invoice.discountType, invoice.discountValue)}
+                  value={`- ${money(invoice.discount)}`}
+                />
               )}
               {(invoice.taxRate > 0 || invoice.tax > 0) && (
                 <TotalRow label={`GST (${invoice.taxRate}%)`} value={money(invoice.tax)} />
@@ -213,12 +224,25 @@ export function InvoiceDocument({ invoice }: { invoice: InvoiceView }) {
 
             <div className="flex items-stretch overflow-hidden rounded-md border-2 border-slate-900 print-keep-color">
               <div className="flex-1 bg-slate-900 px-3 py-2.5 text-sm font-black uppercase tracking-wide text-white sm:px-4 sm:text-base">
-                Total Amount
+                Total Payable
               </div>
               <div className="flex items-center justify-end whitespace-nowrap px-3 py-2.5 text-base font-black sm:px-4 sm:text-lg">
-                ₹ {money(invoice.totalAmount).replace(/^₹\s*/, '')}
+                {money(invoice.totalAmount)}
               </div>
             </div>
+
+            <dl className="space-y-1 text-sm">
+              <TotalRow label="Amount Paid" value={money(invoice.amountPaid)} />
+              <div className="flex justify-between font-bold">
+                <dt>Balance Due</dt>
+                <dd className={invoice.balanceDue > 0 ? 'text-red-600' : 'text-emerald-700'}>
+                  {money(invoice.balanceDue)}
+                </dd>
+              </div>
+              {invoice.excessPaid > 0 && (
+                <TotalRow label="Excess received" value={money(invoice.excessPaid)} />
+              )}
+            </dl>
 
             {invoice.paymentStatus === 'PAID' && invoice.paidAt && (
               <p className="text-right text-xs font-medium text-emerald-700">

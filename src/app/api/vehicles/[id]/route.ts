@@ -31,7 +31,7 @@ export const GET = withAuth(async (_req, { params }) => {
       parts: true,
       labourCharges: true,
       serviceCharges: true,
-      invoice: { select: { id: true, invoiceNumber: true, paymentStatus: true } },
+      invoice: { select: { id: true, invoiceNumber: true, paymentStatus: true, totalAmount: true, amountPaid: true, balanceDue: true } },
       createdBy: { select: { name: true } },
     },
   });

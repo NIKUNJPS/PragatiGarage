@@ -1,4 +1,4 @@
-import type { Garage } from '@prisma/client';
+import type { Garage, Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/prisma';
 
@@ -41,15 +41,21 @@ type Counter = 'jobCard' | 'invoice';
  * so two concurrent requests can never be handed the same sequence value even
  * without an explicit transaction.
  */
-export async function nextDocumentNumber(counter: Counter): Promise<string> {
+export async function nextDocumentNumber(
+  counter: Counter,
+  db: Prisma.TransactionClient = prisma,
+): Promise<string> {
+  // Pass the transaction client when called inside $transaction: the number is
+  // then only consumed if the transaction commits, and it never waits for a
+  // second pooled connection while the transaction holds the first.
   const updated =
     counter === 'jobCard'
-      ? await prisma.garage.upsert({
+      ? await db.garage.upsert({
           where: { id: GARAGE_ID },
           create: { id: GARAGE_ID, jobCardNextNumber: 2 },
           update: { jobCardNextNumber: { increment: 1 } },
         })
-      : await prisma.garage.upsert({
+      : await db.garage.upsert({
           where: { id: GARAGE_ID },
           create: { id: GARAGE_ID, invoiceNextNumber: 2 },
           update: { invoiceNextNumber: { increment: 1 } },

@@ -8,6 +8,7 @@ import type {
   InvoiceListItemDTO,
   JobCardDetailDTO,
   JobCardListItemDTO,
+  PaymentStatus,
   UserDTO,
   VehicleDTO,
 } from '@/types';
@@ -73,17 +74,14 @@ export interface CustomerRow {
   isArchived: boolean;
   createdAt: Date;
   _count?: { vehicles: number; jobCards: number };
-  invoices?: Array<{ totalAmount: unknown; paymentStatus: string }>;
+  invoices?: Array<{ totalAmount: unknown; balanceDue: unknown; paymentStatus: string; isArchived?: boolean }>;
 }
 
 export function serializeCustomer(c: CustomerRow): CustomerDTO {
-  const invoices = c.invoices ?? [];
+  const invoices = (c.invoices ?? []).filter((i) => !i.isArchived);
+  // Billed = final payable amounts (after discount); outstanding = saved balances.
   const totalBilled = round2(invoices.reduce((s, i) => s + toNumber(i.totalAmount as never), 0));
-  const outstanding = round2(
-    invoices
-      .filter((i) => i.paymentStatus === 'UNPAID')
-      .reduce((s, i) => s + toNumber(i.totalAmount as never), 0),
-  );
+  const outstanding = round2(invoices.reduce((s, i) => s + toNumber(i.balanceDue as never), 0));
 
   return {
     id: c.id,
@@ -159,7 +157,14 @@ export interface JobCardRow {
   parts?: Array<{ id: string; partName: string; quantity: unknown; unitPrice: unknown; total: unknown }>;
   labourCharges?: Array<{ id: string; description: string; amount: unknown }>;
   serviceCharges?: Array<{ id: string; description: string; amount: unknown }>;
-  invoice?: { id: string; invoiceNumber: string; paymentStatus: string } | null;
+  invoice?: {
+    id: string;
+    invoiceNumber: string;
+    paymentStatus: string;
+    totalAmount: unknown;
+    amountPaid: unknown;
+    balanceDue: unknown;
+  } | null;
   createdBy?: { name: string } | null;
 }
 
@@ -179,8 +184,12 @@ export function jobCardTotals(j: JobCardRow) {
   };
 }
 
+/**
+ * `total` is what the visit is worth: the invoice's saved payable amount once
+ * billed (after discount and tax), otherwise the job card's running estimate.
+ */
 export function serializeJobCardListItem(j: JobCardRow): JobCardListItemDTO {
-  const { total } = jobCardTotals(j);
+  const total = j.invoice ? toNumber(j.invoice.totalAmount as never) : jobCardTotals(j).total;
   return {
     id: j.id,
     jobCardNumber: j.jobCardNumber,
@@ -203,7 +212,10 @@ export function serializeJobCardListItem(j: JobCardRow): JobCardListItemDTO {
       ? {
           id: j.invoice.id,
           invoiceNumber: j.invoice.invoiceNumber,
-          paymentStatus: j.invoice.paymentStatus as 'PAID' | 'UNPAID',
+          paymentStatus: j.invoice.paymentStatus as PaymentStatus,
+          totalAmount: toNumber(j.invoice.totalAmount as never),
+          amountPaid: toNumber(j.invoice.amountPaid as never),
+          balanceDue: toNumber(j.invoice.balanceDue as never),
         }
       : null,
     createdBy: j.createdBy?.name ?? null,
@@ -259,6 +271,8 @@ export interface InvoiceRow {
   tax: unknown;
   discount: unknown;
   totalAmount: unknown;
+  amountPaid: unknown;
+  balanceDue: unknown;
   isArchived: boolean;
   customer: { id: string; name: string; mobileNumber: string; whatsappNumber: string | null };
   jobCard: {
@@ -275,11 +289,13 @@ export function serializeInvoiceListItem(i: InvoiceRow): InvoiceListItemDTO {
     publicToken: i.publicToken,
     createdAt: i.createdAt.toISOString(),
     paidAt: iso(i.paidAt),
-    paymentStatus: i.paymentStatus as 'PAID' | 'UNPAID',
+    paymentStatus: i.paymentStatus as InvoiceListItemDTO['paymentStatus'],
     subtotal: toNumber(i.subtotal as never),
     tax: toNumber(i.tax as never),
     discount: toNumber(i.discount as never),
     totalAmount: toNumber(i.totalAmount as never),
+    amountPaid: toNumber(i.amountPaid as never),
+    balanceDue: toNumber(i.balanceDue as never),
     isArchived: i.isArchived,
     customer: i.customer,
     vehicle: i.jobCard.vehicle,

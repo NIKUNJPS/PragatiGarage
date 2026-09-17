@@ -13,7 +13,7 @@ const include = {
   parts: true,
   labourCharges: true,
   serviceCharges: true,
-  invoice: { select: { id: true, invoiceNumber: true, paymentStatus: true } },
+  invoice: { select: { id: true, invoiceNumber: true, paymentStatus: true, totalAmount: true, amountPaid: true, balanceDue: true } },
   createdBy: { select: { name: true } },
 } satisfies Prisma.JobCardInclude;
 

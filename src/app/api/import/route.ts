@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { ok, parseBody, withAuth } from '@/lib/api';
-import { nextDocumentNumber } from '@/lib/garage';
+import { getGarage, nextDocumentNumber } from '@/lib/garage';
+import { createInvoice, inTransaction } from '@/lib/invoice-service';
 import { publicToken } from '@/lib/auth';
 import { round2 } from '@/lib/utils';
 import { importPayloadSchema, importRowSchema } from '@/lib/validations';
@@ -35,6 +36,7 @@ function mobileKey(mobile: string): string {
  */
 export const POST = withAuth(async (req, { user }) => {
   const { rows, markServicesPaid } = await parseBody(req, importPayloadSchema);
+  const garage = await getGarage();
 
   const results: RowResult[] = [];
   // Cache customers created/found in THIS batch, keyed by mobile.
@@ -132,61 +134,45 @@ export const POST = withAuth(async (req, { user }) => {
         const amount = round2(data.lastServiceAmount ?? 0);
         const description = data.lastServiceNote || 'Past service (imported)';
 
-        const jobCardNumber = await nextDocumentNumber('jobCard');
-        const jobCard = await prisma.jobCard.create({
-          data: {
-            jobCardNumber,
-            vehicleId: vehicle.id,
-            customerId,
-            complaint: 'Imported historical record',
-            workPerformed: description,
-            status: 'COMPLETED',
-            odometer: data.odometer,
-            completedAt: when,
-            createdAt: when,
-            createdById: user.id,
-            serviceCharges: amount > 0
-              ? { create: [{ description, amount, sortOrder: 0 }] }
-              : undefined,
-          },
-          select: { id: true },
-        });
-
-        // Only raise an invoice when there is an amount to bill.
-        if (amount > 0) {
-          const invoiceNumber = await nextDocumentNumber('invoice');
-          await prisma.invoice.create({
+        // Job card, invoice, line items and the imported payment are saved together.
+        await inTransaction(prisma, async (tx) => {
+          const jobCard = await tx.jobCard.create({
             data: {
-              invoiceNumber,
-              publicToken: publicToken(),
+              jobCardNumber: await nextDocumentNumber('jobCard', tx),
+              vehicleId: vehicle.id,
+              customerId,
+              complaint: 'Imported historical record',
+              workPerformed: description,
+              status: 'COMPLETED',
+              odometer: data.odometer,
+              completedAt: when,
+              createdAt: when,
+              createdById: user.id,
+            },
+            select: { id: true },
+          });
+
+          // Only raise an invoice when there is an amount to bill.
+          if (amount > 0) {
+            await createInvoice(tx, {
               jobCardId: jobCard.id,
               customerId,
-              subtotal: amount,
-              taxRate: 0,
-              tax: 0,
-              discount: 0,
-              totalAmount: amount,
-              paymentStatus: markServicesPaid ? 'PAID' : 'UNPAID',
-              paymentMethod: markServicesPaid ? 'Imported' : null,
-              paidAt: markServicesPaid ? when : null,
-              notes: 'Imported from past records',
-              createdById: user.id,
-              createdAt: when,
-              items: {
-                create: [
-                  {
-                    kind: 'SERVICE',
-                    description,
-                    quantity: 1,
-                    unitPrice: amount,
-                    total: amount,
-                    sortOrder: 0,
-                  },
-                ],
+              billing: {
+                items: [{ kind: 'SERVICE', description, quantity: 1, unitPrice: amount }],
+                taxRate: 0,
+                discountType: 'NONE',
               },
-            },
-          });
-        }
+              notes: 'Imported from past records',
+              publicToken: publicToken(),
+              createdAt: when,
+              currency: garage.currency,
+              userId: user.id,
+              initialPayment: markServicesPaid
+                ? { status: 'PAID', method: 'Other', reference: 'Imported', paidAt: when }
+                : undefined,
+            });
+          }
+        });
         servicesAdded++;
         serviceNote = amount > 0 ? ' + past service & bill' : ' + past service';
       }

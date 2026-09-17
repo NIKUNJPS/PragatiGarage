@@ -25,14 +25,16 @@ import type { InvoiceListItemDTO, Paginated } from '@/types';
 
 const STATUS_FILTERS = [
   { value: 'ALL', label: 'All invoices' },
-  { value: 'UNPAID', label: 'Pending payments' },
+  { value: 'DUE', label: 'Pending payments' },
+  { value: 'PARTIAL', label: 'Part paid' },
+  { value: 'UNPAID', label: 'Unpaid' },
   { value: 'PAID', label: 'Paid' },
 ] as const;
 
 type StatusFilter = (typeof STATUS_FILTERS)[number]['value'];
 
 interface InvoiceListResponse extends Paginated<InvoiceListItemDTO> {
-  summary: { paid: number; unpaid: number };
+  summary: { paid: number; unpaid: number; billed: number };
 }
 
 export function InvoicesView() {
@@ -43,9 +45,10 @@ export function InvoicesView() {
 
   const [term, setTerm] = React.useState('');
   const [page, setPage] = React.useState(1);
-  const [paymentStatus, setPaymentStatus] = React.useState<StatusFilter>(
-    (params.get('paymentStatus') as StatusFilter) || 'ALL',
-  );
+  const [paymentStatus, setPaymentStatus] = React.useState<StatusFilter>(() => {
+    const requested = params.get('paymentStatus');
+    return STATUS_FILTERS.some((f) => f.value === requested) ? (requested as StatusFilter) : 'ALL';
+  });
   const [from, setFrom] = React.useState(params.get('range') === 'today' ? today : '');
   const [to, setTo] = React.useState(params.get('range') === 'today' ? today : '');
 
@@ -87,7 +90,7 @@ export function InvoicesView() {
         <div className="mb-4 grid grid-cols-2 gap-3">
           <Card>
             <CardContent className="p-4">
-              <p className="text-xs font-medium text-muted-foreground">Collected (filtered)</p>
+              <p className="text-xs font-medium text-muted-foreground">Received (filtered)</p>
               <p className="mt-1 text-xl font-bold text-emerald-700">
                 {formatCurrency(data.summary.paid, garage.currency)}
               </p>
@@ -95,7 +98,7 @@ export function InvoicesView() {
           </Card>
           <Card>
             <CardContent className="p-4">
-              <p className="text-xs font-medium text-muted-foreground">Pending (filtered)</p>
+              <p className="text-xs font-medium text-muted-foreground">Balance due (filtered)</p>
               <p className="mt-1 text-xl font-bold text-destructive">
                 {formatCurrency(data.summary.unpaid, garage.currency)}
               </p>
@@ -236,8 +239,13 @@ export function InvoicesView() {
                         <TableCell>
                           <PaymentStatusBadge status={invoice.paymentStatus} />
                         </TableCell>
-                        <TableCell className="text-right font-semibold">
-                          {formatCurrency(invoice.totalAmount, garage.currency)}
+                        <TableCell className="text-right">
+                          <span className="font-semibold">{formatCurrency(invoice.totalAmount, garage.currency)}</span>
+                          {invoice.paymentStatus === 'PARTIAL' && (
+                            <span className="block text-xs text-destructive">
+                              {formatCurrency(invoice.balanceDue, garage.currency)} due
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <InvoiceRowActions invoice={invoice} />
@@ -267,6 +275,11 @@ export function InvoicesView() {
                           <p className="font-semibold">
                             {formatCurrency(invoice.totalAmount, garage.currency)}
                           </p>
+                          {invoice.paymentStatus === 'PARTIAL' && (
+                            <p className="text-xs text-destructive">
+                              {formatCurrency(invoice.balanceDue, garage.currency)} due
+                            </p>
+                          )}
                           <div className="mt-1 flex justify-end">
                             <PaymentStatusBadge status={invoice.paymentStatus} />
                           </div>

@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 
 const summaryInclude = {
   _count: { select: { vehicles: true, jobCards: true } },
-  invoices: { select: { totalAmount: true, paymentStatus: true } },
+  invoices: { select: { totalAmount: true, amountPaid: true, balanceDue: true, paymentStatus: true, isArchived: true } },
 } satisfies Prisma.CustomerInclude;
 
 export const GET = withAuth(async (_req, { params }) => {
@@ -45,7 +45,7 @@ export const GET = withAuth(async (_req, { params }) => {
           parts: true,
           labourCharges: true,
           serviceCharges: true,
-          invoice: { select: { id: true, invoiceNumber: true, paymentStatus: true } },
+          invoice: { select: { id: true, invoiceNumber: true, paymentStatus: true, totalAmount: true, amountPaid: true, balanceDue: true } },
           createdBy: { select: { name: true } },
         },
       },
@@ -73,10 +73,9 @@ export const GET = withAuth(async (_req, { params }) => {
   });
 
   const base = serializeCustomer(customer);
+  // Money actually received, including part payments.
   const paidTotal = round2(
-    customer.invoices
-      .filter((i) => i.paymentStatus === 'PAID')
-      .reduce((s, i) => s + toNumber(i.totalAmount), 0),
+    customer.invoices.filter((i) => !i.isArchived).reduce((s, i) => s + toNumber(i.amountPaid), 0),
   );
 
   const body: CustomerDetailDTO = {

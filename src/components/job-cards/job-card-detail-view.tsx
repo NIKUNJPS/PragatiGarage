@@ -291,10 +291,24 @@ export function JobCardDetailView({ jobCardId }: { jobCardId: string }) {
               <Line label="Parts" value={formatCurrency(data.partsTotal, currency)} />
               <Line label="Labour" value={formatCurrency(data.labourTotal, currency)} />
               <Line label="Service" value={formatCurrency(data.serviceTotal, currency)} />
-              <div className="flex items-center justify-between border-t pt-2 text-base font-bold">
-                <span>Total</span>
-                <span>{formatCurrency(data.total, currency)}</span>
-              </div>
+              {data.invoice ? (
+                <>
+                  <div className="flex items-center justify-between border-t pt-2 text-base font-bold">
+                    <span>Billed ({data.invoice.invoiceNumber})</span>
+                    <span>{formatCurrency(data.invoice.totalAmount, currency)}</span>
+                  </div>
+                  {data.partsTotal + data.labourTotal + data.serviceTotal !== data.invoice.totalAmount && (
+                    <p className="text-xs text-muted-foreground">After the invoice discount and tax.</p>
+                  )}
+                  <Line label="Paid" value={formatCurrency(data.invoice.amountPaid, currency)} />
+                  <Line label="Balance due" value={formatCurrency(data.invoice.balanceDue, currency)} />
+                </>
+              ) : (
+                <div className="flex items-center justify-between border-t pt-2 text-base font-bold">
+                  <span>Total</span>
+                  <span>{formatCurrency(data.total, currency)}</span>
+                </div>
+              )}
             </div>
           </div>
         </CardContent>

@@ -3,10 +3,11 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { ApiError, created, ok, paginated, parseBody, parseQuery, withAuth } from '@/lib/api';
 import { publicToken } from '@/lib/auth';
-import { nextDocumentNumber } from '@/lib/garage';
-import { buildInvoiceView, computeTotals } from '@/lib/invoice-data';
+import { getGarage } from '@/lib/garage';
+import { getInvoiceViewById } from '@/lib/invoice-data';
+import { createInvoice, inTransaction } from '@/lib/invoice-service';
 import { serializeInvoiceListItem } from '@/lib/serializers';
-import { endOfDay, normalizeVehicleNumber, round2 } from '@/lib/utils';
+import { endOfDay, normalizeVehicleNumber, round2, toNumber } from '@/lib/utils';
 import { createInvoiceSchema, invoiceListQuerySchema } from '@/lib/validations';
 
 export const dynamic = 'force-dynamic';
@@ -38,7 +39,11 @@ export const GET = withAuth(async (req) => {
 
   const where: Prisma.InvoiceWhereInput = {
     ...(includeArchived ? {} : { isArchived: false }),
-    ...(paymentStatus && paymentStatus !== 'ALL' ? { paymentStatus } : {}),
+    ...(paymentStatus === 'DUE'
+      ? { paymentStatus: { in: ['UNPAID', 'PARTIAL'] } }
+      : paymentStatus && paymentStatus !== 'ALL'
+        ? { paymentStatus }
+        : {}),
     ...(customerId ? { customerId } : {}),
     ...(fromDate || toDate
       ? { createdAt: { ...(fromDate ? { gte: fromDate } : {}), ...(toDate ? { lte: toDate } : {}) } }
@@ -65,12 +70,15 @@ export const GET = withAuth(async (req) => {
       take: pageSize,
     }),
     prisma.invoice.count({ where }),
-    prisma.invoice.groupBy({ by: ['paymentStatus'], where, _sum: { totalAmount: true } }),
+    prisma.invoice.aggregate({ where, _sum: { amountPaid: true, balanceDue: true, totalAmount: true } }),
   ]);
 
+  // Collected = money actually received; pending = what is still owed. Discounts
+  // are in neither, and part-paid invoices count in both for their share.
   const summary = {
-    paid: round2(Number(totals.find((t) => t.paymentStatus === 'PAID')?._sum.totalAmount ?? 0)),
-    unpaid: round2(Number(totals.find((t) => t.paymentStatus === 'UNPAID')?._sum.totalAmount ?? 0)),
+    paid: round2(toNumber(totals._sum.amountPaid)),
+    unpaid: round2(toNumber(totals._sum.balanceDue)),
+    billed: round2(toNumber(totals._sum.totalAmount)),
   };
 
   return ok({
@@ -80,65 +88,52 @@ export const GET = withAuth(async (req) => {
 });
 
 /**
- * Create an invoice from a completed job card. Line items arrive from the
- * client (they are editable before finalising) but every total is recomputed
- * here - a client-supplied total is never trusted.
+ * Create an invoice from a job card. Line items arrive from the client (they are
+ * editable before finalising) but every total is recalculated on the server, and
+ * the invoice, its items, the job card mirror and any payment taken now are
+ * saved in one transaction - all or nothing.
  */
 export const POST = withAuth(async (req, { user }) => {
   const input = await parseBody(req, createInvoiceSchema);
+  const garage = await getGarage();
 
-  const jobCard = await prisma.jobCard.findUnique({
-    where: { id: input.jobCardId },
-    select: { id: true, customerId: true, isArchived: true, invoice: { select: { id: true } } },
-  });
+  const invoiceId = await inTransaction(prisma, async (tx) => {
+    const jobCard = await tx.jobCard.findUnique({
+      where: { id: input.jobCardId },
+      select: { id: true, customerId: true, isArchived: true, invoice: { select: { id: true } } },
+    });
 
-  if (!jobCard) throw new ApiError(404, 'That job card no longer exists.');
-  if (jobCard.isArchived) throw new ApiError(400, 'This job card is archived.');
-  if (jobCard.invoice)
-    throw new ApiError(409, 'This job card already has an invoice.', undefined);
+    if (!jobCard) throw new ApiError(404, 'That job card no longer exists.');
+    if (jobCard.isArchived) throw new ApiError(400, 'This job card is archived.');
+    if (jobCard.invoice) throw new ApiError(409, 'This job card already has an invoice.');
 
-  const totals = computeTotals(input.items, input.taxRate, input.discount);
-  const invoiceNumber = await nextDocumentNumber('invoice');
-
-  const invoice = await prisma.invoice.create({
-    data: {
-      invoiceNumber,
-      publicToken: publicToken(),
+    const id = await createInvoice(tx, {
       jobCardId: jobCard.id,
       customerId: jobCard.customerId,
-      subtotal: totals.subtotal,
-      taxRate: input.taxRate,
-      tax: totals.tax,
-      discount: totals.discount,
-      totalAmount: totals.totalAmount,
-      paymentStatus: input.paymentStatus,
-      paymentMethod: input.paymentMethod,
-      paidAt: input.paymentStatus === 'PAID' ? new Date() : null,
+      billing: input,
       notes: input.notes,
-      createdById: user.id,
-      items: {
-        create: input.items.map((item, i) => ({
-          kind: item.kind,
-          description: item.description,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          total: round2(item.quantity * item.unitPrice),
-          sortOrder: i,
-        })),
+      publicToken: publicToken(),
+      currency: garage.currency,
+      userId: user.id,
+      initialPayment: {
+        status: input.paymentStatus,
+        amount: input.paymentAmount,
+        method: input.paymentMethod,
+        reference: input.paymentReference,
+        paidAt: new Date(),
+        idempotencyKey: input.idempotencyKey,
       },
-    },
-    include: {
-      items: { orderBy: [{ kind: 'asc' }, { sortOrder: 'asc' }] },
-      customer: true,
-      jobCard: { include: { vehicle: true } },
-    },
+    });
+
+    // Billing an unfinished job is almost always a mistake, so close it out.
+    await tx.jobCard.update({
+      where: { id: jobCard.id },
+      data: { status: 'COMPLETED', completedAt: new Date() },
+    });
+
+    return id;
   });
 
-  // Billing an unfinished job is almost always a mistake, so close it out.
-  await prisma.jobCard.update({
-    where: { id: jobCard.id },
-    data: { status: 'COMPLETED', completedAt: new Date() },
-  });
-
-  return created(await buildInvoiceView(invoice));
+  // Respond with the committed record, exactly as every later screen will read it.
+  return created(await getInvoiceViewById(invoiceId));
 });

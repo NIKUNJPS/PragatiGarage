@@ -9,7 +9,7 @@ import { CalendarDays, FileText, History, User } from 'lucide-react';
 import { z } from 'zod';
 
 import { api, applyFieldErrors, errorMessage } from '@/lib/client-api';
-import { cn, formatCurrency, formatDate, round2 } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
 import { directInvoiceSchema } from '@/lib/validations';
 import { useSession } from '@/hooks/use-session';
 import { useToast } from '@/hooks/use-toast';
@@ -20,6 +20,15 @@ import { Label } from '@/components/ui/label';
 import { FieldError, FieldHint } from '@/components/ui/misc';
 import { VehiclePicker } from '@/components/vehicles/vehicle-picker';
 import { InvoiceItemsField } from '@/components/invoices/invoice-items-field';
+import {
+  BillSummary,
+  DiscountTaxFields,
+  InitialPaymentFields,
+  applyBillingErrors,
+  initialPaymentError,
+  newIdempotencyKey,
+  useBillingPreview,
+} from '@/components/invoices/billing-fields';
 import type { VehicleDTO } from '@/types';
 import type { InvoiceView } from '@/lib/invoice-data';
 
@@ -63,29 +72,27 @@ export function DirectInvoiceForm({ presetVehicle }: { presetVehicle?: VehicleDT
       odometer: presetVehicle?.odometer ?? undefined,
       items: [{ kind: 'LABOUR', description: '', quantity: 1, unitPrice: 0 }],
       taxRate: garage.defaultTaxRate,
-      discount: 0,
+      discountType: 'NONE',
+      discountValue: 0,
       paymentStatus: 'UNPAID',
+      paymentAmount: undefined,
       paymentMethod: '',
+      paymentReference: '',
       notes: '',
     },
   });
+
+  // One key per form instance: a double-click or retry cannot record the payment twice.
+  const idempotencyKey = React.useMemo(newIdempotencyKey, []);
 
 
   React.useEffect(() => {
     setValue('vehicleId', vehicle?.id ?? '');
   }, [vehicle, setValue]);
 
-  const watchedItems = watch('items') ?? [];
-  const taxRate = num(watch('taxRate'));
-  const discount = num(watch('discount'));
-  const paymentStatus = watch('paymentStatus');
-
-  const subtotal = round2(
-    watchedItems.reduce((sum, i) => sum + num(i?.quantity) * num(i?.unitPrice), 0),
-  );
-  const safeDiscount = round2(Math.min(Math.max(discount, 0), subtotal));
-  const tax = round2(((subtotal - safeDiscount) * taxRate) / 100);
-  const grandTotal = round2(subtotal - safeDiscount + tax);
+  const { totals, errors: previewErrors } = useBillingPreview(watch);
+  const subtotal = totals.subtotal;
+  const grandTotal = totals.totalAmount;
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) => api.post<InvoiceView>('/api/invoices/direct', values),
@@ -109,7 +116,15 @@ export function DirectInvoiceForm({ presetVehicle }: { presetVehicle?: VehicleDT
 
   return (
     <form
-      onSubmit={handleSubmit((values) => mutation.mutate(values))}
+      onSubmit={handleSubmit((values) => {
+        if (applyBillingErrors(previewErrors, setError)) return;
+        const paymentError = initialPaymentError(values, totals, garage.currency);
+        if (paymentError) {
+          setError('paymentAmount', { type: 'billing', message: paymentError });
+          return;
+        }
+        mutation.mutate({ ...values, expectedTotal: totals.totalAmount, idempotencyKey });
+      })}
       className="space-y-4 pb-24 lg:pb-4"
     >
       {/* ------------------------------------------------- vehicle + date */}
@@ -236,58 +251,25 @@ export function DirectInvoiceForm({ presetVehicle }: { presetVehicle?: VehicleDT
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Tax, discount &amp; payment</CardTitle>
+            <CardTitle>Discount, tax &amp; payment</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <Label htmlFor="taxRate">Tax / GST rate (%)</Label>
-                <Input id="taxRate" type="number" step="any" className="mt-1.5" {...register('taxRate')} />
-                <FieldError message={errors.taxRate?.message} />
-              </div>
-              <div>
-                <Label htmlFor="discount">Discount ({garage.currency})</Label>
-                <Input id="discount" type="number" step="any" className="mt-1.5" {...register('discount')} />
-                <FieldError message={errors.discount?.message} />
-              </div>
-            </div>
-
-            <div>
-              <Label>Payment status</Label>
-              <div className="mt-1.5 grid grid-cols-2 gap-2">
-                {(['UNPAID', 'PAID'] as const).map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setValue('paymentStatus', option)}
-                    aria-pressed={paymentStatus === option}
-                    className={cn(
-                      'h-10 rounded-md border text-sm font-medium transition-colors',
-                      paymentStatus === option
-                        ? option === 'PAID'
-                          ? 'border-emerald-500 bg-emerald-50 text-emerald-800'
-                          : 'border-amber-500 bg-amber-50 text-amber-800'
-                        : 'border-input bg-background hover:bg-accent',
-                    )}
-                  >
-                    {option === 'PAID' ? 'Paid' : 'Pending (unpaid)'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {paymentStatus === 'PAID' && (
-              <div>
-                <Label htmlFor="paymentMethod">Payment method</Label>
-                <Input
-                  id="paymentMethod"
-                  placeholder="Cash / UPI / Card"
-                  className="mt-1.5"
-                  {...register('paymentMethod')}
-                />
-              </div>
-            )}
-
+          <CardContent className="space-y-5">
+            <DiscountTaxFields
+              register={register}
+              watch={watch}
+              setValue={setValue}
+              errors={errors}
+              currency={garage.currency}
+              previewErrors={previewErrors}
+            />
+            <InitialPaymentFields
+              register={register}
+              watch={watch}
+              setValue={setValue}
+              errors={errors}
+              totals={totals}
+              currency={garage.currency}
+            />
             <div>
               <Label htmlFor="notes">Notes</Label>
               <Textarea id="notes" rows={2} className="mt-1.5" {...register('notes')} />
@@ -295,24 +277,9 @@ export function DirectInvoiceForm({ presetVehicle }: { presetVehicle?: VehicleDT
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Summary</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <dl className="space-y-2 text-sm">
-              <Row label="Subtotal" value={formatCurrency(subtotal, garage.currency)} />
-              {safeDiscount > 0 && (
-                <Row label="Discount" value={`- ${formatCurrency(safeDiscount, garage.currency)}`} />
-              )}
-              <Row label={`Tax / GST (${taxRate || 0}%)`} value={formatCurrency(tax, garage.currency)} />
-              <div className="flex items-center justify-between border-t pt-3 text-lg font-bold">
-                <dt>Grand total</dt>
-                <dd>{formatCurrency(grandTotal, garage.currency)}</dd>
-              </div>
-            </dl>
-          </CardContent>
-        </Card>
+        <div className="lg:sticky lg:top-20 lg:self-start">
+          <BillSummary totals={totals} currency={garage.currency} />
+        </div>
       </div>
 
       <div className="fixed inset-x-0 bottom-16 z-30 border-t bg-card/95 p-3 backdrop-blur lg:static lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
@@ -333,18 +300,4 @@ export function DirectInvoiceForm({ presetVehicle }: { presetVehicle?: VehicleDT
       </div>
     </form>
   );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="font-medium">{value}</dd>
-    </div>
-  );
-}
-
-function num(value: unknown): number {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : 0;
 }

@@ -140,15 +140,15 @@ export function DashboardView() {
 
           {data.unpaidCount > 0 && (
             <Link
-              href="/invoices?paymentStatus=UNPAID"
+              href="/invoices?paymentStatus=DUE"
               className="mt-3 flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-900 transition-colors hover:bg-red-100"
             >
               <AlertCircle className="h-5 w-5 shrink-0" />
               <p className="min-w-0 flex-1 text-sm">
                 <span className="font-semibold">
-                  {data.unpaidCount} unpaid invoice{data.unpaidCount === 1 ? '' : 's'}
+                  {data.unpaidCount} invoice{data.unpaidCount === 1 ? '' : 's'} with a balance due
                 </span>{' '}
-                worth {formatCurrency(data.unpaidAmount, data.currency)} pending collection.
+                - {formatCurrency(data.unpaidAmount, data.currency)} pending collection.
               </p>
               <span className="shrink-0 text-xs font-semibold underline underline-offset-2">
                 View

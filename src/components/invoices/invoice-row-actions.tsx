@@ -106,7 +106,7 @@ export function InvoiceRowActions({ invoice }: { invoice: InvoiceListItemDTO }) 
           <DropdownMenuItem onClick={() => share.mutate('service')}>
             <CalendarClock /> Send service reminder
           </DropdownMenuItem>
-          {invoice.paymentStatus === 'UNPAID' && (
+          {invoice.paymentStatus !== 'PAID' && (
             <DropdownMenuItem onClick={() => share.mutate('reminder')}>
               <BellRing /> Send payment reminder
             </DropdownMenuItem>

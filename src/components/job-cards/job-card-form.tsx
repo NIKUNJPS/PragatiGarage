@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useFieldArray, useForm, type UseFormRegister } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -225,6 +226,25 @@ export function JobCardForm({
         </CardContent>
       </Card>
 
+      {jobCard?.invoice ? (
+        <Card>
+          <CardContent className="flex flex-col gap-3 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-semibold">
+                Charges are billed on invoice {jobCard.invoice.invoiceNumber}
+              </p>
+              <p className="mt-0.5 text-muted-foreground">
+                Parts, labour and service charges now live on the invoice, where the discount, tax
+                and payments are kept in step. Edit them there.
+              </p>
+            </div>
+            <Button asChild variant="outline" className="shrink-0">
+              <Link href={`/invoices/${jobCard.invoice.id}/edit`}>Edit invoice charges</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
       {/* ------------------------------------------------------- parts used */}
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
@@ -362,6 +382,9 @@ export function JobCardForm({
           </FieldHint>
         </CardContent>
       </Card>
+
+        </>
+      )}
 
       {/* Sticky save bar keeps the action reachable on a phone */}
       <div className="fixed inset-x-0 bottom-16 z-30 border-t bg-card/95 p-3 backdrop-blur lg:static lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">

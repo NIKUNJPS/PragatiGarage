@@ -18,7 +18,12 @@ export const GET = withAuth(async (req, { params }) => {
   if (!invoice.pdfUrl) {
     try {
       const url = await uploadInvoicePdf(invoice.invoiceNumber, pdf);
-      if (url) await prisma.invoice.update({ where: { id: invoice.id }, data: { pdfUrl: url } });
+      if (url) {
+        await prisma.invoice.updateMany({
+          where: { id: invoice.id, updatedAt: new Date(invoice.updatedAt) },
+          data: { pdfUrl: url },
+        });
+      }
     } catch (error) {
       console.warn('[invoice-pdf] storage upload skipped:', error);
     }

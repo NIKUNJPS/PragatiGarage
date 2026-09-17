@@ -1,6 +1,8 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+import { roundMoney } from '@/lib/money';
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -16,9 +18,9 @@ export function toNumber(value: DecimalLike): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-/** Round to 2 decimals without binary-float drift (e.g. 1.005 -> 1.01). */
+/** Round to 2 decimals exactly, half away from zero (e.g. 3 x 333.335 -> 1000.01). */
 export function round2(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
+  return roundMoney(value);
 }
 
 const CURRENCY_SYMBOLS: Record<string, string> = {

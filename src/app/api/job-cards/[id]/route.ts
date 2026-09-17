@@ -12,7 +12,7 @@ const include = {
   customer: {
     include: {
       _count: { select: { vehicles: true, jobCards: true } },
-      invoices: { select: { totalAmount: true, paymentStatus: true } },
+      invoices: { select: { totalAmount: true, balanceDue: true, paymentStatus: true, isArchived: true } },
     },
   },
   vehicle: {
@@ -24,7 +24,7 @@ const include = {
   parts: { orderBy: { sortOrder: 'asc' } },
   labourCharges: { orderBy: { sortOrder: 'asc' } },
   serviceCharges: { orderBy: { sortOrder: 'asc' } },
-  invoice: { select: { id: true, invoiceNumber: true, paymentStatus: true } },
+  invoice: { select: { id: true, invoiceNumber: true, paymentStatus: true, totalAmount: true, amountPaid: true, balanceDue: true } },
   createdBy: { select: { name: true } },
 } satisfies Prisma.JobCardInclude;
 
@@ -71,9 +71,28 @@ export const PATCH = withAuth(async (req, { params }) => {
   });
   if (!vehicle) throw new ApiError(400, 'Choose a valid vehicle for this job card.');
 
+  const billed = Boolean(existing.invoice);
+
   const jobCard = await prisma.$transaction(async (tx) => {
-    // Line items are replaced wholesale - simpler and safer than diffing, and
-    // the invoice keeps its own frozen copy so history is never rewritten.
+    if (billed) {
+      // Once invoiced, the charges belong to the invoice (edit them there, where
+      // totals, discount and payments are recalculated). The job card mirrors the
+      // invoice lines, so only the work details can change here.
+      return tx.jobCard.update({
+        where: { id: params.id },
+        data: {
+          complaint: input.complaint ?? '',
+          workPerformed: input.workPerformed ?? '',
+          odometer: input.odometer ?? null,
+          status: input.status,
+          completedAt:
+            input.status === 'COMPLETED' ? (existing.status === 'COMPLETED' ? undefined : new Date()) : null,
+        },
+        include,
+      });
+    }
+
+    // Line items are replaced wholesale - simpler and safer than diffing.
     await tx.partUsed.deleteMany({ where: { jobCardId: params.id } });
     await tx.labourCharge.deleteMany({ where: { jobCardId: params.id } });
     await tx.serviceCharge.deleteMany({ where: { jobCardId: params.id } });

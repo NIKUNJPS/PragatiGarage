@@ -4,16 +4,10 @@ import { z, ZodError, type ZodTypeAny } from 'zod';
 
 import { getCurrentUser, type Role, type SessionUser } from '@/lib/auth';
 
-export class ApiError extends Error {
-  constructor(
-    public status: number,
-    message: string,
-    public fieldErrors?: Record<string, string[]>,
-  ) {
-    super(message);
-    this.name = 'ApiError';
-  }
-}
+import { BillingValidationError } from '@/lib/billing';
+import { ApiError } from '@/lib/errors';
+
+export { ApiError };
 
 export const badRequest = (msg: string, fields?: Record<string, string[]>) =>
   new ApiError(400, msg, fields);
@@ -36,6 +30,13 @@ export function toErrorResponse(error: unknown) {
     return NextResponse.json(
       { error: error.message, fieldErrors: error.fieldErrors ?? null },
       { status: error.status },
+    );
+  }
+
+  if (error instanceof BillingValidationError) {
+    return NextResponse.json(
+      { error: error.message, fieldErrors: error.fieldErrors },
+      { status: 400 },
     );
   }
 

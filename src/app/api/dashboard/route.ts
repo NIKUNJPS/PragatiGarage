@@ -2,7 +2,9 @@ import { prisma } from '@/lib/prisma';
 import { ok, withAuth } from '@/lib/api';
 import { getGarage } from '@/lib/garage';
 import { serializeJobCardListItem } from '@/lib/serializers';
-import { endOfDay, round2, startOfDay, toNumber, type DecimalLike } from '@/lib/utils';
+import { splitCollected } from '@/lib/billing';
+import { fromPaise, toPaise } from '@/lib/money';
+import { endOfDay, startOfDay, toNumber, type DecimalLike } from '@/lib/utils';
 import type { DashboardStats, InvoiceItemKind } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -13,16 +15,23 @@ export const GET = withAuth(async () => {
   const dayEnd = endOfDay(now);
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
+  const paymentInclude = {
+    invoice: {
+      select: {
+        subtotal: true,
+        items: { select: { kind: true, total: true } },
+      },
+    },
+  } as const;
+
   const [
     totalCustomers,
     totalVehicles,
     pendingJobs,
     inProgressJobs,
-    todayPaid,
-    monthPaid,
-    unpaid,
-    todayItems,
-    monthItems,
+    todayPayments,
+    monthPayments,
+    outstanding,
     recent,
     garage,
   ] = await Promise.all([
@@ -30,46 +39,20 @@ export const GET = withAuth(async () => {
     prisma.vehicle.count({ where: { isArchived: false } }),
     prisma.jobCard.count({ where: { isArchived: false, status: 'PENDING' } }),
     prisma.jobCard.count({ where: { isArchived: false, status: 'IN_PROGRESS' } }),
-    prisma.invoice.aggregate({
-      where: {
-        isArchived: false,
-        paymentStatus: 'PAID',
-        // Revenue is counted on the day the money came in, not the day the
-        // invoice was raised.
-        paidAt: { gte: dayStart, lte: dayEnd },
-      },
-      _sum: { totalAmount: true },
+    // Revenue is money actually received (payment records, by the day it came in),
+    // so discounts and unpaid balances never show up as collected.
+    prisma.payment.findMany({
+      where: { isVoided: false, paidAt: { gte: dayStart, lte: dayEnd }, invoice: { isArchived: false } },
+      select: { amount: true, ...paymentInclude },
+    }),
+    prisma.payment.findMany({
+      where: { isVoided: false, paidAt: { gte: monthStart, lte: dayEnd }, invoice: { isArchived: false } },
+      select: { amount: true, ...paymentInclude },
     }),
     prisma.invoice.aggregate({
-      where: { isArchived: false, paymentStatus: 'PAID', paidAt: { gte: monthStart, lte: dayEnd } },
-      _sum: { totalAmount: true },
-    }),
-    prisma.invoice.aggregate({
-      where: { isArchived: false, paymentStatus: 'UNPAID' },
-      _sum: { totalAmount: true },
+      where: { isArchived: false, paymentStatus: { in: ['UNPAID', 'PARTIAL'] } },
+      _sum: { balanceDue: true },
       _count: true,
-    }),
-    prisma.invoiceItem.groupBy({
-      by: ['kind'],
-      where: {
-        invoice: {
-          isArchived: false,
-          paymentStatus: 'PAID',
-          paidAt: { gte: dayStart, lte: dayEnd },
-        },
-      },
-      _sum: { total: true },
-    }),
-    prisma.invoiceItem.groupBy({
-      by: ['kind'],
-      where: {
-        invoice: {
-          isArchived: false,
-          paymentStatus: 'PAID',
-          paidAt: { gte: monthStart, lte: dayEnd },
-        },
-      },
-      _sum: { total: true },
     }),
     prisma.jobCard.findMany({
       where: { isArchived: false },
@@ -83,17 +66,15 @@ export const GET = withAuth(async () => {
         parts: true,
         labourCharges: true,
         serviceCharges: true,
-        invoice: { select: { id: true, invoiceNumber: true, paymentStatus: true } },
+        invoice: { select: { id: true, invoiceNumber: true, paymentStatus: true, totalAmount: true, amountPaid: true, balanceDue: true } },
         createdBy: { select: { name: true } },
       },
     }),
     getGarage(),
   ]);
 
-  const todayRevenue = round2(toNumber(todayPaid._sum.totalAmount));
-  const monthRevenue = round2(toNumber(monthPaid._sum.totalAmount));
-  const todaySplit = splitRevenue(todayItems, todayRevenue);
-  const monthSplit = splitRevenue(monthItems, monthRevenue);
+  const today = collectedSplit(todayPayments);
+  const month = collectedSplit(monthPayments);
 
   const stats: DashboardStats = {
     totalCustomers,
@@ -101,14 +82,14 @@ export const GET = withAuth(async () => {
     activeJobs: pendingJobs + inProgressJobs,
     pendingJobs,
     inProgressJobs,
-    todayRevenue,
-    monthRevenue,
-    todayPartsRevenue: todaySplit.parts,
-    todayLabourRevenue: todaySplit.labour,
-    monthPartsRevenue: monthSplit.parts,
-    monthLabourRevenue: monthSplit.labour,
-    unpaidCount: unpaid._count,
-    unpaidAmount: round2(toNumber(unpaid._sum.totalAmount)),
+    todayRevenue: today.total,
+    monthRevenue: month.total,
+    todayPartsRevenue: today.parts,
+    todayLabourRevenue: today.labour,
+    monthPartsRevenue: month.parts,
+    monthLabourRevenue: month.labour,
+    unpaidCount: outstanding._count,
+    unpaidAmount: toNumber(outstanding._sum.balanceDue),
     currency: garage.currency,
     recentJobCards: recent.map(serializeJobCardListItem),
   };
@@ -117,25 +98,28 @@ export const GET = withAuth(async () => {
 });
 
 /**
- * Splits billed line items into spare parts vs labour (service charges bill as
- * labour), scaled so both add up to the money actually collected - invoice-level
- * tax and discount sit outside the line items.
+ * Totals the payments and splits each one into spare parts vs labour in the same
+ * proportion as its invoice's line items (service charges count as labour).
  */
-function splitRevenue(
-  rows: Array<{ kind: InvoiceItemKind; _sum: { total: DecimalLike } }>,
-  collected: number,
-): { parts: number; labour: number } {
+function collectedSplit(
+  payments: Array<{
+    amount: DecimalLike;
+    invoice: { subtotal: DecimalLike; items: Array<{ kind: InvoiceItemKind; total: DecimalLike }> };
+  }>,
+): { total: number; parts: number; labour: number } {
+  let total = 0;
   let parts = 0;
-  let billed = 0;
+  let labour = 0;
 
-  for (const row of rows) {
-    const amount = toNumber(row._sum.total);
-    billed += amount;
-    if (row.kind === 'PART') parts += amount;
+  for (const payment of payments) {
+    const partsBilled = payment.invoice.items
+      .filter((i) => i.kind === 'PART')
+      .reduce((sum, i) => sum + toPaise(toNumber(i.total)), 0);
+    const split = splitCollected(toNumber(payment.amount), fromPaise(partsBilled), toNumber(payment.invoice.subtotal));
+    total += toPaise(toNumber(payment.amount));
+    parts += toPaise(split.parts);
+    labour += toPaise(split.labour);
   }
 
-  if (billed <= 0) return { parts: 0, labour: collected };
-
-  const partsRevenue = round2((parts / billed) * collected);
-  return { parts: partsRevenue, labour: round2(collected - partsRevenue) };
+  return { total: fromPaise(total), parts: fromPaise(parts), labour: fromPaise(labour) };
 }

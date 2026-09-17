@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 const include = {
   _count: { select: { vehicles: true, jobCards: true } },
-  invoices: { select: { totalAmount: true, paymentStatus: true } },
+  invoices: { select: { totalAmount: true, balanceDue: true, paymentStatus: true, isArchived: true } },
 } satisfies Prisma.CustomerInclude;
 
 const SORTABLE: Record<string, string> = {

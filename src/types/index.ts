@@ -7,7 +7,7 @@
 export type Role = 'ADMIN' | 'STAFF';
 export type VehicleType = 'BIKE' | 'CAR';
 export type JobStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
-export type PaymentStatus = 'PAID' | 'UNPAID';
+export type PaymentStatus = 'PAID' | 'UNPAID' | 'PARTIAL';
 export type InvoiceItemKind = 'PART' | 'LABOUR' | 'SERVICE';
 
 export interface Paginated<T> {
@@ -127,7 +127,14 @@ export interface JobCardListItemDTO {
   total: number;
   customer: { id: string; name: string; mobileNumber: string };
   vehicle: { id: string; vehicleNumber: string; vehicleType: VehicleType; brand: string; model: string };
-  invoice: { id: string; invoiceNumber: string; paymentStatus: PaymentStatus } | null;
+  invoice: {
+    id: string;
+    invoiceNumber: string;
+    paymentStatus: PaymentStatus;
+    totalAmount: number;
+    amountPaid: number;
+    balanceDue: number;
+  } | null;
   createdBy: string | null;
 }
 
@@ -155,6 +162,8 @@ export interface InvoiceListItemDTO {
   tax: number;
   discount: number;
   totalAmount: number;
+  amountPaid: number;
+  balanceDue: number;
   isArchived: boolean;
   customer: { id: string; name: string; mobileNumber: string; whatsappNumber: string | null };
   vehicle: { id: string; vehicleNumber: string };
@@ -184,6 +193,14 @@ export interface SearchResults {
   vehicles: Array<{ id: string; vehicleNumber: string; brand: string; model: string; customerName: string }>;
   jobCards: Array<{ id: string; jobCardNumber: string; status: JobStatus; vehicleNumber: string; customerName: string }>;
   invoices: Array<{ id: string; invoiceNumber: string; paymentStatus: PaymentStatus; customerName: string; totalAmount: number }>;
+}
+
+export interface PaymentConfirmationResponse {
+  message: string;
+  waLink: string;
+  sentDirectly: boolean;
+  whatsappNumber: string;
+  confirmationSentAt: string;
 }
 
 export interface ShareInvoiceResponse {

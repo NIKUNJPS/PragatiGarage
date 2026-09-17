@@ -34,13 +34,14 @@ export async function uploadFile(
   path: string,
   data: Buffer | Uint8Array,
   contentType: string,
+  cacheControl = '3600',
 ): Promise<StoredFile> {
   const sb = supabase();
 
   if (sb) {
     const { error } = await sb.client.storage
       .from(sb.bucket)
-      .upload(path, data, { contentType, upsert: true, cacheControl: '3600' });
+      .upload(path, data, { contentType, upsert: true, cacheControl });
 
     if (error) {
       // A missing bucket is the most common misconfiguration - say so plainly.
@@ -81,6 +82,8 @@ export async function uploadInvoicePdf(
 ): Promise<string | null> {
   if (!supabaseConfig()) return null;
   const safe = invoiceNumber.replace(/[^A-Za-z0-9._-]/g, '_');
-  const stored = await uploadFile(`invoices/${safe}.pdf`, pdf, 'application/pdf');
-  return stored.url;
+  // The same path is overwritten when an invoice changes, so never let a CDN or
+  // browser keep an old copy, and give each upload a distinct URL.
+  const stored = await uploadFile(`invoices/${safe}.pdf`, pdf, 'application/pdf', '0');
+  return `${stored.url}?v=${Date.now()}`;
 }

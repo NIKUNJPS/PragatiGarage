@@ -4,7 +4,8 @@ import * as React from 'react';
 import { useFieldArray } from 'react-hook-form';
 import { Plus, Trash2 } from 'lucide-react';
 
-import { formatCurrency, round2 } from '@/lib/utils';
+import { fromPaise, multiplyToPaise } from '@/lib/money';
+import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FieldError } from '@/components/ui/misc';
@@ -28,15 +29,10 @@ export function InvoiceItemsField({
   // Loosely typed (any) so the same editor works with the create and edit form
   // schemas - react-hook-form's Control generic is invariant, which makes a
   // shared, schema-agnostic field component awkward to type precisely.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   control: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   register: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   watch: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   setValue: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   errors: any;
   currency: string;
 }) {
@@ -45,7 +41,12 @@ export function InvoiceItemsField({
     watch('items') ?? [];
 
   const itemErrors = (errors?.items ?? []) as Array<
-    { description?: { message?: string } } | undefined
+    | {
+        description?: { message?: string };
+        quantity?: { message?: string };
+        unitPrice?: { message?: string };
+      }
+    | undefined
   >;
 
   const append = (kind: InvoiceItemKind) =>
@@ -62,9 +63,9 @@ export function InvoiceItemsField({
       {items.fields.map((field, index) => {
         const kind = (watched[index]?.kind as InvoiceItemKind) ?? 'PART';
         const isPart = kind === 'PART';
-        const qty = num(watched[index]?.quantity);
-        const price = num(watched[index]?.unitPrice);
-        const lineTotal = round2((isPart ? qty : 1) * price);
+        // Same arithmetic as the saved invoice: quantity x price for every kind
+        // (labour and service rows keep quantity at 1).
+        const lineTotal = safeLineTotal(watched[index]?.quantity, watched[index]?.unitPrice);
 
         return (
           <div
@@ -116,7 +117,7 @@ export function InvoiceItemsField({
                 <div className="col-span-3 sm:col-span-1">
                   <Input
                     type="number"
-                    step="any"
+                    step="0.01"
                     inputMode="decimal"
                     placeholder="Qty"
                     aria-label="Quantity"
@@ -126,7 +127,7 @@ export function InvoiceItemsField({
                 <div className="col-span-3 sm:col-span-1">
                   <Input
                     type="number"
-                    step="any"
+                    step="0.01"
                     inputMode="decimal"
                     placeholder="Rate"
                     aria-label="Unit price"
@@ -138,7 +139,7 @@ export function InvoiceItemsField({
               <div className="col-span-6 sm:col-span-2">
                 <Input
                   type="number"
-                  step="any"
+                  step="0.01"
                   inputMode="decimal"
                   placeholder="Amount"
                   aria-label="Amount"
@@ -146,6 +147,14 @@ export function InvoiceItemsField({
                 />
                 {/* keep quantity in the form data at 1 for non-part rows */}
                 <input type="hidden" {...register(`items.${index}.quantity` as const)} />
+              </div>
+            )}
+
+            {(itemErrors[index]?.quantity || itemErrors[index]?.unitPrice) && (
+              <div className="col-span-12 -mt-1 sm:order-last">
+                <FieldError
+                  message={itemErrors[index]?.quantity?.message ?? itemErrors[index]?.unitPrice?.message}
+                />
               </div>
             )}
 
@@ -190,7 +199,12 @@ export function InvoiceItemsField({
   );
 }
 
-function num(value: unknown): number {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : 0;
+function safeLineTotal(quantity: unknown, unitPrice: unknown): number {
+  try {
+    const q = quantity === '' || quantity == null ? 0 : (quantity as string | number);
+    const p = unitPrice === '' || unitPrice == null ? 0 : (unitPrice as string | number);
+    return fromPaise(multiplyToPaise(q, p));
+  } catch {
+    return 0;
+  }
 }

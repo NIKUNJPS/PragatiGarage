@@ -14,11 +14,18 @@ export function invoicePdfUrl(publicToken: string): string {
 
 export function buildInvoiceMessage(invoice: InvoiceView): string {
   const link = invoice.pdfUrl || invoiceShareUrl(invoice.publicToken);
-  const amount = formatCurrency(invoice.totalAmount, invoice.garage.currency);
-  const status =
+  const money = (value: number) => formatCurrency(value, invoice.garage.currency);
+  const amounts =
     invoice.paymentStatus === 'PAID'
-      ? 'Payment received - thank you!'
-      : 'Kindly clear the payment at your convenience.';
+      ? [`Total: ${money(invoice.totalAmount)}`, 'Payment received - thank you!']
+      : invoice.paymentStatus === 'PARTIAL'
+        ? [
+            `Total: ${money(invoice.totalAmount)}`,
+            `Paid: ${money(invoice.amountPaid)}`,
+            `Balance due: ${money(invoice.balanceDue)}`,
+            'Kindly clear the balance at your convenience.',
+          ]
+        : [`Total: ${money(invoice.totalAmount)}`, 'Kindly clear the payment at your convenience.'];
 
   return [
     `Hi ${invoice.customer.name},`,
@@ -26,8 +33,8 @@ export function buildInvoiceMessage(invoice: InvoiceView): string {
     `Here is your invoice from ${invoice.garage.name} for vehicle ${invoice.vehicle.vehicleNumber}.`,
     '',
     `Invoice: ${invoice.invoiceNumber}`,
-    `Total: ${amount}`,
-    status,
+    ...(invoice.discount > 0 ? [`Discount: ${money(invoice.discount)}`] : []),
+    ...amounts,
     '',
     `View / download: ${link}`,
     '',
@@ -52,7 +59,7 @@ function daysSince(iso: string): number {
  */
 export function buildReminderMessage(invoice: InvoiceView): string {
   const link = invoice.pdfUrl || invoiceShareUrl(invoice.publicToken);
-  const amount = formatCurrency(invoice.totalAmount, invoice.garage.currency);
+  const amount = formatCurrency(invoice.balanceDue, invoice.garage.currency);
   const days = daysSince(invoice.createdAt);
   const age =
     days <= 0
@@ -124,6 +131,33 @@ export function waMeLink(rawNumber: string, message: string): string {
 }
 
 export const hasWhatsAppCloudApi = () => whatsappCloudConfig() !== null;
+
+/**
+ * Plain text over the Cloud API (used for payment confirmations). Returns false
+ * when not configured or when the send fails, so callers fall back to wa.me.
+ */
+export async function sendTextViaCloudApi(toNumber: string, body: string): Promise<boolean> {
+  const cfg = whatsappCloudConfig();
+  if (!cfg) return false;
+  const to = toWhatsAppNumber(toNumber);
+  if (!to) return false;
+
+  try {
+    const res = await fetch(`https://graph.facebook.com/v21.0/${cfg.phoneNumberId}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${cfg.accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messaging_product: 'whatsapp', to, type: 'text', text: { body } }),
+    });
+    if (!res.ok) {
+      console.warn('[whatsapp] Cloud API text send failed:', await res.text());
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.warn('[whatsapp] Cloud API text send error:', error);
+    return false;
+  }
+}
 
 /**
  * Optional upgrade path: when WhatsApp Cloud API credentials are present the

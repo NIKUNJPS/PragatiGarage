@@ -15,7 +15,7 @@ const include = {
   parts: { orderBy: { sortOrder: 'asc' } },
   labourCharges: { orderBy: { sortOrder: 'asc' } },
   serviceCharges: { orderBy: { sortOrder: 'asc' } },
-  invoice: { select: { id: true, invoiceNumber: true, paymentStatus: true } },
+  invoice: { select: { id: true, invoiceNumber: true, paymentStatus: true, totalAmount: true, amountPaid: true, balanceDue: true } },
   createdBy: { select: { name: true } },
 } satisfies Prisma.JobCardInclude;
 

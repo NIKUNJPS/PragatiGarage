@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { MAX_AMOUNT, MAX_QUANTITY, PAYMENT_METHODS } from '@/lib/billing';
+import { decimalPlaces } from '@/lib/money';
 import { normalizeVehicleNumber } from '@/lib/utils';
 
 /* -------------------------------------------------------------------------- */
@@ -47,19 +49,29 @@ export const passwordSchema = z
     message: 'Include at least one letter and one number.',
   });
 
-/** Money coming from a form input: accepts "1,250.50" or 1250.5 */
+const toDecimalNumber = (v: string | number) =>
+  typeof v === 'number' ? v : Number(String(v).replace(/,/g, '').trim() || 0);
+
+/** Money coming from a form input: accepts "1,250.50" or 1250.5, at most 2 decimals. */
 export const moneySchema = z
   .union([z.string(), z.number()])
-  .transform((v) => (typeof v === 'number' ? v : Number(String(v).replace(/,/g, '').trim() || 0)))
+  .refine((v) => decimalPlaces(v) <= 2, { message: 'Use at most 2 decimal places.' })
+  .transform(toDecimalNumber)
   .refine((v) => Number.isFinite(v), { message: 'Enter a valid amount.' })
   .refine((v) => v >= 0, { message: 'Amount cannot be negative.' })
-  .refine((v) => v <= 99_999_999, { message: 'That amount looks too large.' });
+  .refine((v) => v <= MAX_AMOUNT, { message: 'That amount looks too large.' });
+
+/** A strictly positive amount (payments). */
+export const positiveMoneySchema = moneySchema.refine((v) => v > 0, {
+  message: 'Amount must be greater than zero.',
+});
 
 export const quantitySchema = z
   .union([z.string(), z.number()])
+  .refine((v) => decimalPlaces(v) <= 2, { message: 'Use at most 2 decimal places.' })
   .transform((v) => (typeof v === 'number' ? v : Number(String(v).trim() || 0)))
   .refine((v) => Number.isFinite(v) && v > 0, { message: 'Quantity must be greater than zero.' })
-  .refine((v) => v <= 100_000, { message: 'Quantity looks too large.' });
+  .refine((v) => v <= MAX_QUANTITY, { message: 'Quantity looks too large.' });
 
 const optionalInt = z
   .union([z.string(), z.number(), z.null(), z.undefined()])
@@ -247,15 +259,67 @@ export const invoiceItemSchema = z.object({
   unitPrice: moneySchema,
 });
 
-export const createInvoiceSchema = z.object({
-  jobCardId: z.string().min(1, 'A job card is required.'),
-  items: z.array(invoiceItemSchema).min(1, 'Add at least one line item.'),
-  taxRate: z.coerce.number().min(0, 'Cannot be negative.').max(100, 'Cannot exceed 100%.').default(0),
-  discount: moneySchema.default(0),
-  notes: trimmed(500).optional().or(z.literal('')).transform((v) => v || undefined),
-  paymentStatus: z.enum(['PAID', 'UNPAID']).default('UNPAID'),
-  paymentMethod: trimmed(40).optional().or(z.literal('')).transform((v) => v || undefined),
+export const paymentMethodSchema = z.enum(PAYMENT_METHODS, {
+  errorMap: () => ({ message: 'Choose a payment method.' }),
 });
+
+const taxRateSchema = z
+  .union([z.string(), z.number()])
+  .refine((v) => decimalPlaces(v) <= 2, { message: 'Use at most 2 decimal places.' })
+  .transform(toDecimalNumber)
+  .refine((v) => Number.isFinite(v) && v >= 0, { message: 'Cannot be negative.' })
+  .refine((v) => v <= 100, { message: 'Cannot exceed 100%.' });
+
+const optionalText = (max: number) =>
+  trimmed(max).optional().or(z.literal('')).transform((v) => v || undefined);
+
+/**
+ * Billing fields shared by every invoice write. Totals are never accepted from
+ * the client; `expectedTotal` is only compared against the server's own
+ * calculation so a stale or buggy screen can never save a different amount
+ * than the one the user saw.
+ */
+const billingFields = {
+  items: z.array(invoiceItemSchema).min(1, 'Add at least one line item.').max(200),
+  taxRate: taxRateSchema.default(0),
+  discountType: z.enum(['NONE', 'PERCENT', 'FIXED']).optional(),
+  discountValue: moneySchema.optional(),
+  /** Legacy fixed-amount discount, still accepted from older clients. */
+  discount: moneySchema.optional(),
+  expectedTotal: moneySchema.optional(),
+  notes: optionalText(500),
+};
+
+/** Payment taken at the moment the invoice is created. */
+const initialPaymentFields = {
+  paymentStatus: z.enum(['UNPAID', 'PARTIAL', 'PAID']).default('UNPAID'),
+  paymentAmount: moneySchema.optional(),
+  paymentMethod: z.union([paymentMethodSchema, z.literal('')]).optional().transform((v) => v || undefined),
+  paymentReference: optionalText(80),
+  /** Per-submit key so a double-click cannot create two invoices' worth of payments. */
+  idempotencyKey: z.string().trim().min(8).max(80).optional(),
+};
+
+function refineInitialPayment(
+  data: { paymentStatus: string; paymentAmount?: number; paymentMethod?: string },
+  ctx: z.RefinementCtx,
+) {
+  if (data.paymentStatus === 'UNPAID') return;
+  if (!data.paymentMethod) {
+    ctx.addIssue({ code: 'custom', path: ['paymentMethod'], message: 'Choose how the customer paid.' });
+  }
+  if (data.paymentStatus === 'PARTIAL' && !(data.paymentAmount && data.paymentAmount > 0)) {
+    ctx.addIssue({ code: 'custom', path: ['paymentAmount'], message: 'Enter the amount received.' });
+  }
+}
+
+export const createInvoiceSchema = z
+  .object({
+    jobCardId: z.string().min(1, 'A job card is required.').max(64),
+    ...billingFields,
+    ...initialPaymentFields,
+  })
+  .superRefine(refineInitialPayment);
 export type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>;
 
 /**
@@ -264,8 +328,9 @@ export type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>;
  * so historical bills can be entered by hand with the correct date. The same
  * vehicle number is reused (each entry is a new dated visit).
  */
-export const directInvoiceSchema = z.object({
-  vehicleId: z.string().min(1, 'Choose or add a vehicle.'),
+export const directInvoiceSchema = z
+  .object({
+  vehicleId: z.string().min(1, 'Choose or add a vehicle.').max(64),
   issueDate: z
     .string()
     .optional()
@@ -282,33 +347,71 @@ export const directInvoiceSchema = z.object({
   complaint: trimmed(2000).optional().default(''),
   workPerformed: trimmed(2000).optional().default(''),
   odometer: optionalInt,
-  items: z.array(invoiceItemSchema).min(1, 'Add at least one line item.'),
-  taxRate: z.coerce.number().min(0, 'Cannot be negative.').max(100, 'Cannot exceed 100%.').default(0),
-  discount: moneySchema.default(0),
-  notes: trimmed(500).optional().or(z.literal('')).transform((v) => v || undefined),
-  paymentStatus: z.enum(['PAID', 'UNPAID']).default('UNPAID'),
-  paymentMethod: trimmed(40).optional().or(z.literal('')).transform((v) => v || undefined),
-});
+  ...billingFields,
+  ...initialPaymentFields,
+  })
+  .superRefine(refineInitialPayment);
 export type DirectInvoiceInput = z.infer<typeof directInvoiceSchema>;
 
 /** Client-side form schema for editing an existing invoice's line items & totals. */
 export const editInvoiceFormSchema = z.object({
-  items: z.array(invoiceItemSchema).min(1, 'Add at least one line item.'),
-  taxRate: z.coerce.number().min(0, 'Cannot be negative.').max(100, 'Cannot exceed 100%.').default(0),
-  discount: moneySchema.default(0),
-  paymentStatus: z.enum(['PAID', 'UNPAID']).default('UNPAID'),
-  paymentMethod: trimmed(40).optional().or(z.literal('')).transform((v) => v || undefined),
-  notes: trimmed(500).optional().or(z.literal('')).transform((v) => v || undefined),
+  ...billingFields,
+  /** Required when the new total is below what the customer has already paid. */
+  confirmOverpayment: z.boolean().optional(),
 });
 export type EditInvoiceFormInput = z.infer<typeof editInvoiceFormSchema>;
 
 export const updateInvoiceSchema = z.object({
-  items: z.array(invoiceItemSchema).min(1, 'Add at least one line item.').optional(),
-  taxRate: z.coerce.number().min(0).max(100).optional(),
-  discount: moneySchema.optional(),
+  items: billingFields.items.optional(),
+  taxRate: taxRateSchema.optional(),
+  discountType: billingFields.discountType,
+  discountValue: billingFields.discountValue,
+  discount: billingFields.discount,
+  expectedTotal: billingFields.expectedTotal,
   notes: trimmed(500).optional().nullable(),
+  confirmOverpayment: z.boolean().optional(),
+  /**
+   * Legacy manual status toggle, validated against real money: PAID records a
+   * payment for the balance due, UNPAID voids the recorded payments.
+   */
   paymentStatus: z.enum(['PAID', 'UNPAID']).optional(),
-  paymentMethod: trimmed(40).optional().nullable(),
+  paymentMethod: z.union([paymentMethodSchema, z.literal('')]).optional().nullable().transform((v) => v || undefined),
+});
+export type UpdateInvoiceInput = z.infer<typeof updateInvoiceSchema>;
+
+export const recordPaymentSchema = z.object({
+  amount: positiveMoneySchema,
+  method: paymentMethodSchema,
+  paidAt: z
+    .string()
+    .optional()
+    .transform((v, ctx) => {
+      if (!v) return undefined;
+      const d = new Date(v);
+      if (Number.isNaN(d.getTime())) {
+        ctx.addIssue({ code: 'custom', message: 'Enter a valid payment date.' });
+        return z.NEVER;
+      }
+      if (d.getTime() > Date.now() + 5 * 60_000) {
+        ctx.addIssue({ code: 'custom', message: 'Payment date cannot be in the future.' });
+        return z.NEVER;
+      }
+      return d;
+    }),
+  reference: optionalText(80),
+  notes: optionalText(300),
+  idempotencyKey: z.string().trim().min(8, 'Missing submission key.').max(80),
+});
+export type RecordPaymentInput = z.infer<typeof recordPaymentSchema>;
+
+export const voidPaymentSchema = z.object({
+  reason: trimmed(200).min(3, 'Say why this payment is being voided.'),
+});
+
+export const paymentConfirmationSchema = z.object({
+  /** Explicitly re-send a confirmation that was already sent. */
+  resend: z.boolean().optional().default(false),
+  whatsappNumber: optionalPhoneSchema,
 });
 
 /* -------------------------------------------------------------------------- */
@@ -341,7 +444,8 @@ export const jobCardListQuerySchema = listQuerySchema.extend({
 });
 
 export const invoiceListQuerySchema = listQuerySchema.extend({
-  paymentStatus: z.enum(['PAID', 'UNPAID', 'ALL']).optional().default('ALL'),
+  /** DUE = anything with money outstanding (UNPAID or PARTIAL). */
+  paymentStatus: z.enum(['PAID', 'UNPAID', 'PARTIAL', 'DUE', 'ALL']).optional().default('ALL'),
   from: z.string().optional(),
   to: z.string().optional(),
   customerId: z.string().optional(),

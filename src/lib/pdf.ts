@@ -1,5 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type PDFImage } from 'pdf-lib';
 
+import { discountLabel } from '@/lib/billing';
+import { fromPaise, toPaise } from '@/lib/money';
 import type { InvoiceView } from '@/lib/invoice-data';
 import { formatDate, round2 } from '@/lib/utils';
 
@@ -19,6 +21,7 @@ const LINE = rgb(0.8, 0.83, 0.86);
 const RED = rgb(0.86, 0.15, 0.15);
 const BLACK = rgb(0.05, 0.07, 0.11);
 const GREEN = rgb(0.06, 0.5, 0.28);
+const AMBER = rgb(0.85, 0.47, 0.02);
 const WHITE = rgb(1, 1, 1);
 
 /** Standard PDF fonts have no rupee glyph, so INR is written "Rs." */
@@ -196,9 +199,10 @@ export async function renderInvoicePdf(invoice: InvoiceView): Promise<Uint8Array
   // invoice no + status
   text(`Invoice: ${invoice.invoiceNumber}`, M, y - 11, 9, { font: bold });
   const paid = invoice.paymentStatus === 'PAID';
-  const pill = paid ? 'PAID' : 'PAYMENT DUE';
+  const partial = invoice.paymentStatus === 'PARTIAL';
+  const pill = paid ? 'PAID' : partial ? 'PARTIALLY PAID' : 'PAYMENT DUE';
   const pw = width(bold, pill, 8) + 14;
-  page.drawRectangle({ x: right - pw, y: y - 13, width: pw, height: 15, color: paid ? GREEN : RED });
+  page.drawRectangle({ x: right - pw, y: y - 13, width: pw, height: 15, color: paid ? GREEN : partial ? AMBER : RED });
   rightText(pill, right - 7, y - 10, 8, { font: bold, color: WHITE });
   y -= 24;
 
@@ -304,7 +308,7 @@ export async function renderInvoicePdf(invoice: InvoiceView): Promise<Uint8Array
   for (const section of sections) {
     const items = invoice.items.filter((it) => it.kind === section.kind);
     if (items.length === 0) continue;
-    const sectionTotal = items.reduce((s, it) => s + it.total, 0);
+    const sectionTotal = fromPaise(items.reduce((s, it) => s + toPaise(it.total), 0));
 
     if (y < 210) {
       newPage();
@@ -345,7 +349,9 @@ export async function renderInvoicePdf(invoice: InvoiceView): Promise<Uint8Array
     y -= 14;
   };
   totalRow('Subtotal', money(invoice.subtotal, cur));
-  if (invoice.discount > 0) totalRow('Discount', `- ${money(invoice.discount, cur)}`);
+  if (invoice.discount > 0) {
+    totalRow(discountLabel(invoice.discountType, invoice.discountValue), `- ${money(invoice.discount, cur)}`);
+  }
   if (invoice.taxRate > 0 || invoice.tax > 0) totalRow(`GST (${invoice.taxRate}%)`, money(invoice.tax, cur));
 
   y -= 2;
@@ -355,9 +361,16 @@ export async function renderInvoicePdf(invoice: InvoiceView): Promise<Uint8Array
   const labelW = 150;
   page.drawRectangle({ x: tl - 20, y: barY, width: right - (tl - 20), height: barH, borderColor: BLACK, borderWidth: 1.4 });
   page.drawRectangle({ x: tl - 20, y: barY, width: labelW, height: barH, color: BLACK });
-  text('TOTAL AMOUNT', tl - 12, barY + 9, 11, { font: bold, color: WHITE });
+  text('TOTAL PAYABLE', tl - 12, barY + 9, 11, { font: bold, color: WHITE });
   rightText(money(invoice.totalAmount, cur), right - 8, barY + 8, 12, { font: bold });
-  y = barY - 8;
+  y = barY - 6;
+
+  // Amount paid / balance due come from the saved payment records.
+  totalRow('Amount Paid', money(invoice.amountPaid, cur));
+  text('Balance Due', tl, y - 9, 9.5, { font: bold });
+  rightText(money(invoice.balanceDue, cur), right, y - 9, 9.5, { font: bold, color: invoice.balanceDue > 0 ? RED : GREEN });
+  y -= 16;
+  if (invoice.excessPaid > 0) totalRow('Excess received', money(invoice.excessPaid, cur));
 
   if (paid && invoice.paidAt) {
     rightText(
