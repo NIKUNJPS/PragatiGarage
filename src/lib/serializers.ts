@@ -274,6 +274,8 @@ export interface InvoiceRow {
   amountPaid: unknown;
   balanceDue: unknown;
   isArchived: boolean;
+  attendantName: string | null;
+  billedByName: string | null;
   customer: { id: string; name: string; mobileNumber: string; whatsappNumber: string | null };
   jobCard: {
     id: string;
@@ -297,6 +299,8 @@ export function serializeInvoiceListItem(i: InvoiceRow): InvoiceListItemDTO {
     amountPaid: toNumber(i.amountPaid as never),
     balanceDue: toNumber(i.balanceDue as never),
     isArchived: i.isArchived,
+    attendantName: i.attendantName,
+    billedByName: i.billedByName,
     customer: i.customer,
     vehicle: i.jobCard.vehicle,
     jobCard: { id: i.jobCard.id, jobCardNumber: i.jobCard.jobCardNumber },

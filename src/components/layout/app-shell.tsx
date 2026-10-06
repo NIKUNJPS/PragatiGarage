@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  BarChart3,
   Bike,
   ClipboardList,
   LayoutDashboard,
@@ -46,6 +47,7 @@ const NAV: NavItem[] = [
   { href: '/vehicles', label: 'Vehicles', shortLabel: 'Vehicles', icon: Bike },
   { href: '/job-cards', label: 'Job Cards', shortLabel: 'Jobs', icon: ClipboardList },
   { href: '/invoices', label: 'Invoices', shortLabel: 'Bills', icon: Receipt },
+  { href: '/reports', label: 'Reports', shortLabel: 'Reports', icon: BarChart3 },
   { href: '/import', label: 'Import Data', shortLabel: 'Import', icon: Upload },
   { href: '/settings', label: 'Settings', shortLabel: 'Settings', icon: Settings, adminOnly: true },
 ];

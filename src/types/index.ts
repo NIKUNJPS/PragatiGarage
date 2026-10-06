@@ -165,9 +165,17 @@ export interface InvoiceListItemDTO {
   amountPaid: number;
   balanceDue: number;
   isArchived: boolean;
+  attendantName: string | null;
+  billedByName: string | null;
   customer: { id: string; name: string; mobileNumber: string; whatsappNumber: string | null };
   vehicle: { id: string; vehicleNumber: string };
   jobCard: { id: string; jobCardNumber: string };
+}
+
+/** Names typed on earlier bills, most recently used first - offered as suggestions on the bill form. */
+export interface StaffNameSuggestions {
+  attendants: string[];
+  billers: string[];
 }
 
 export interface DashboardStats {
@@ -210,4 +218,116 @@ export interface ShareInvoiceResponse {
   message: string;
   sentDirectly: boolean;
   whatsappNumber: string;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Revenue reports                                                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Two views of revenue, kept apart on purpose:
+ *  - billed:    what the bills issued in the period are worth (after discount + tax)
+ *  - collected: money actually received in the period, against any bill
+ */
+export interface RevenueSummary {
+  /** Bills issued in the period (archived bills excluded). */
+  billCount: number;
+  /** Final payable amount of those bills. */
+  billed: number;
+  /** Gross line totals by section, before discount and tax. */
+  partsBilled: number;
+  labourBilled: number;
+  serviceBilled: number;
+  discount: number;
+  tax: number;
+  /** Received so far against the period's bills (whenever it came in). */
+  billedPaid: number;
+  /** Still owed on the period's bills. */
+  outstanding: number;
+  paidCount: number;
+  partialCount: number;
+  unpaidCount: number;
+  /** Money received during the period, against any bill. */
+  collected: number;
+  /** `collected` split in the same proportion as each bill (service counts as labour). */
+  collectedParts: number;
+  collectedLabour: number;
+  paymentCount: number;
+}
+
+export interface MethodTotal {
+  method: string;
+  count: number;
+  amount: number;
+}
+
+/** Bills issued in the period, grouped by car attendant or by who made the bill. */
+export interface PersonTotal {
+  /** null = not recorded on the bill. */
+  name: string | null;
+  bills: number;
+  billed: number;
+  paid: number;
+  outstanding: number;
+}
+
+export interface PeriodTotal {
+  /** "YYYY-MM-DD" for a day, "YYYY-MM" for a month. */
+  key: string;
+  bills: number;
+  billed: number;
+  collected: number;
+}
+
+export interface ReportBill {
+  id: string;
+  invoiceNumber: string;
+  createdAt: string;
+  customerName: string;
+  vehicleNumber: string;
+  attendantName: string | null;
+  billedByName: string | null;
+  totalAmount: number;
+  amountPaid: number;
+  balanceDue: number;
+  paymentStatus: PaymentStatus;
+}
+
+export interface ReportPayment {
+  id: string;
+  invoiceId: string;
+  invoiceNumber: string;
+  customerName: string;
+  vehicleNumber: string;
+  paidAt: string;
+  method: string;
+  amount: number;
+  reference: string | null;
+}
+
+interface ReportBase {
+  timeZone: string;
+  currency: string;
+  summary: RevenueSummary;
+  byMethod: MethodTotal[];
+  byAttendant: PersonTotal[];
+  byBiller: PersonTotal[];
+}
+
+export interface DailyReport extends ReportBase {
+  /** "YYYY-MM-DD" in the report's time zone. */
+  date: string;
+  isToday: boolean;
+  bills: ReportBill[];
+  payments: ReportPayment[];
+}
+
+export interface MonthlyReport extends ReportBase {
+  /** "YYYY-MM" in the report's time zone. */
+  month: string;
+  isCurrentMonth: boolean;
+  /** Each day of the month, up to today for the current month. */
+  days: PeriodTotal[];
+  /** The 12 months ending with this one, oldest first. */
+  trend: PeriodTotal[];
 }

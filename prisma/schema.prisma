@@ -259,6 +259,11 @@ model Invoice {
   /// Method of the most recent payment, kept for list/PDF display.
   paymentMethod String?
   notes         String?
+  /// Car attendant: the mechanic / staff member who attended the vehicle.
+  attendantName String?
+  /// Name of the person who made the bill. Typed on the bill form because one
+  /// owner login is shared at the counter, so `createdById` cannot tell people apart.
+  billedByName  String?
   pdfUrl        String?
   isArchived    Boolean       @default(false)
   createdById   String?
@@ -279,6 +284,8 @@ model Invoice {
   @@index([paymentStatus])
   @@index([createdAt])
   @@index([isArchived])
+  @@index([attendantName])
+  @@index([billedByName])
 }
 
 /// Snapshot of the job-card line items taken when the invoice is created, so later

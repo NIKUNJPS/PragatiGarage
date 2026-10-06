@@ -27,6 +27,7 @@ import {
   applyBillingErrors,
   useBillingPreview,
 } from '@/components/invoices/billing-fields';
+import { StaffNameFields } from '@/components/invoices/staff-name-fields';
 import type { InvoiceView } from '@/lib/invoice-data';
 
 type FormValues = z.input<typeof editInvoiceFormSchema>;
@@ -64,6 +65,8 @@ export function EditInvoiceForm({ invoice }: { invoice: InvoiceView }) {
       discountType: invoice.discountType,
       discountValue: invoice.discountValue,
       notes: invoice.notes ?? '',
+      attendantName: invoice.attendantName ?? '',
+      billedByName: invoice.billedByName ?? '',
       confirmOverpayment: false,
     },
   });
@@ -78,6 +81,7 @@ export function EditInvoiceForm({ invoice }: { invoice: InvoiceView }) {
       queryClient.setQueryData(['invoices', invoice.id], updated);
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
       queryClient.invalidateQueries({ queryKey: ['job-cards'] });
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
@@ -140,6 +144,14 @@ export function EditInvoiceForm({ invoice }: { invoice: InvoiceView }) {
           />
         </CardContent>
       </Card>
+
+      <StaffNameFields
+        register={register}
+        watch={watch}
+        setValue={setValue}
+        errors={errors}
+        requireBiller={false}
+      />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

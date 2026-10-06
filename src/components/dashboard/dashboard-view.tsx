@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import {
   AlertCircle,
+  BarChart3,
   Bike,
   ClipboardList,
   HardHat,
@@ -17,7 +18,8 @@ import {
   Wrench,
 } from 'lucide-react';
 
-import { api } from '@/lib/client-api';
+import { api, qs } from '@/lib/client-api';
+import { browserTimeZone } from '@/lib/timezone';
 import { cn, formatCurrency, formatDate, prettyVehicleNumber } from '@/lib/utils';
 import { useSession } from '@/hooks/use-session';
 import { Button } from '@/components/ui/button';
@@ -36,17 +38,21 @@ export function DashboardView() {
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['dashboard'],
-    queryFn: () => api.get<DashboardStats>('/api/dashboard'),
+    queryFn: () => api.get<DashboardStats>(`/api/dashboard${qs({ tz: browserTimeZone() })}`),
   });
 
   const firstName = user.name.split(' ')[0];
+  // Picked after mount from the browser's clock: the server renders in UTC, so a
+  // server-side greeting would not match the garage's local time of day.
+  const [salutation, setSalutation] = React.useState<string | null>(null);
+  React.useEffect(() => setSalutation(greeting()), []);
 
   return (
     <div>
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
-            {greeting()}, {firstName}
+            {salutation ?? 'Welcome'}, {firstName}
           </h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             Here is what is happening at {garage.name} today.
@@ -63,6 +69,11 @@ export function DashboardView() {
           <Button variant="outline" asChild>
             <Link href="/job-cards/new">
               <ClipboardList /> New job card
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/reports">
+              <BarChart3 /> Reports
             </Link>
           </Button>
           <Button asChild>
@@ -113,7 +124,7 @@ export function DashboardView() {
               tone="amber"
             />
             <StatCard
-              href="/invoices?paymentStatus=PAID&range=today"
+              href="/reports?view=daily"
               label="Spare parts revenue"
               value={formatCurrency(data.todayPartsRevenue, data.currency)}
               hint={`${formatCurrency(data.monthPartsRevenue, data.currency)} this month`}
@@ -121,7 +132,7 @@ export function DashboardView() {
               tone="sky"
             />
             <StatCard
-              href="/invoices?paymentStatus=PAID&range=today"
+              href="/reports?view=daily"
               label="Labour revenue"
               value={formatCurrency(data.todayLabourRevenue, data.currency)}
               hint={`${formatCurrency(data.monthLabourRevenue, data.currency)} this month`}
@@ -129,7 +140,7 @@ export function DashboardView() {
               tone="rose"
             />
             <StatCard
-              href="/invoices?paymentStatus=PAID&range=today"
+              href="/reports?view=daily"
               label="Total revenue"
               value={formatCurrency(data.todayRevenue, data.currency)}
               hint={`${formatCurrency(data.monthRevenue, data.currency)} this month`}

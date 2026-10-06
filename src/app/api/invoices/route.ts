@@ -7,6 +7,7 @@ import { getGarage } from '@/lib/garage';
 import { getInvoiceViewById } from '@/lib/invoice-data';
 import { createInvoice, inTransaction } from '@/lib/invoice-service';
 import { serializeInvoiceListItem } from '@/lib/serializers';
+import { dayRange, isDateKey } from '@/lib/timezone';
 import { endOfDay, normalizeVehicleNumber, round2, toNumber } from '@/lib/utils';
 import { createInvoiceSchema, invoiceListQuerySchema } from '@/lib/validations';
 
@@ -23,6 +24,20 @@ const listInclude = {
   },
 } satisfies Prisma.InvoiceInclude;
 
+/**
+ * A "YYYY-MM-DD" filter covers that whole local day in the viewer's time zone
+ * (`to` is inclusive of the day, so the bound is the next day's start, exclusive).
+ */
+function dateBound(value: string | undefined, tz: string, edge: 'from' | 'to'): { gte: Date } | { lt: Date } | undefined {
+  if (isDateKey(value)) {
+    const { start, end } = dayRange(value, tz);
+    return edge === 'from' ? { gte: start } : { lt: end };
+  }
+  const legacy = parseDate(value, edge === 'to');
+  if (!legacy) return undefined;
+  return edge === 'from' ? { gte: legacy } : { lt: new Date(legacy.getTime() + 1) };
+}
+
 function parseDate(value: string | undefined, end = false): Date | undefined {
   if (!value) return undefined;
   const d = new Date(value);
@@ -31,11 +46,11 @@ function parseDate(value: string | undefined, end = false): Date | undefined {
 }
 
 export const GET = withAuth(async (req) => {
-  const { q, page, pageSize, sortDir, includeArchived, paymentStatus, from, to, customerId } =
+  const { q, page, pageSize, sortDir, includeArchived, paymentStatus, from, to, tz, customerId } =
     parseQuery(req, invoiceListQuerySchema);
 
-  const fromDate = parseDate(from);
-  const toDate = parseDate(to, true);
+  const fromBound = dateBound(from, tz, 'from');
+  const toBound = dateBound(to, tz, 'to');
 
   const where: Prisma.InvoiceWhereInput = {
     ...(includeArchived ? {} : { isArchived: false }),
@@ -45,9 +60,7 @@ export const GET = withAuth(async (req) => {
         ? { paymentStatus }
         : {}),
     ...(customerId ? { customerId } : {}),
-    ...(fromDate || toDate
-      ? { createdAt: { ...(fromDate ? { gte: fromDate } : {}), ...(toDate ? { lte: toDate } : {}) } }
-      : {}),
+    ...(fromBound || toBound ? { createdAt: { ...fromBound, ...toBound } } : {}),
     ...(q
       ? {
           OR: [
@@ -56,6 +69,8 @@ export const GET = withAuth(async (req) => {
             { jobCard: { vehicle: { vehicleNumber: { contains: normalizeVehicleNumber(q) } } } },
             { customer: { name: { contains: q, mode: 'insensitive' } } },
             { customer: { mobileNumber: { contains: q.replace(/\D/g, '') || q } } },
+            { attendantName: { contains: q, mode: 'insensitive' } },
+            { billedByName: { contains: q, mode: 'insensitive' } },
           ],
         }
       : {}),
@@ -112,6 +127,8 @@ export const POST = withAuth(async (req, { user }) => {
       customerId: jobCard.customerId,
       billing: input,
       notes: input.notes,
+      attendantName: input.attendantName,
+      billedByName: input.billedByName,
       publicToken: publicToken(),
       currency: garage.currency,
       userId: user.id,

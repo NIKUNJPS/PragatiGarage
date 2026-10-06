@@ -161,6 +161,10 @@ function billingSnapshot(invoice: InvoiceRow) {
   };
 }
 
+function staffSnapshot(invoice: { attendantName: string | null; billedByName: string | null }) {
+  return { attendantName: invoice.attendantName, billedByName: invoice.billedByName };
+}
+
 /* -------------------------------------------------------------------------- */
 /* Locking and recalculation                                                   */
 /* -------------------------------------------------------------------------- */
@@ -304,6 +308,10 @@ export async function createInvoice(
     customerId: string;
     billing: BillingPayload;
     notes?: string;
+    /** Car attendant - the mechanic who worked on the vehicle. */
+    attendantName?: string;
+    /** Person who made the bill (typed on the form; the login is shared). */
+    billedByName?: string;
     publicToken: string;
     createdAt?: Date;
     currency: string;
@@ -366,6 +374,8 @@ export async function createInvoice(
       paymentStatus: totals.totalAmount > 0 ? 'UNPAID' : 'PAID',
       paidAt: totals.totalAmount > 0 ? null : when,
       notes: args.notes,
+      attendantName: args.attendantName || null,
+      billedByName: args.billedByName || null,
       createdById: args.userId,
       createdAt: when,
       items: {
@@ -389,7 +399,7 @@ export async function createInvoice(
     entityId: invoice.id,
     invoiceId: invoice.id,
     action: 'INVOICE_CREATED',
-    newValue: { invoiceNumber, ...billingSnapshot(invoice) },
+    newValue: { invoiceNumber, ...billingSnapshot(invoice), ...staffSnapshot(invoice) },
     userId: args.userId,
   });
 
@@ -432,6 +442,8 @@ export async function updateInvoice(
     discount?: number;
     expectedTotal?: number;
     notes?: string | null;
+    attendantName?: string | null;
+    billedByName?: string | null;
     confirmOverpayment?: boolean;
     paymentStatus?: 'PAID' | 'UNPAID';
     paymentMethod?: string;
@@ -530,6 +542,19 @@ export async function updateInvoice(
     await tx.invoice.update({ where: { id: invoiceId }, data: { notes: input.notes } });
   }
 
+  const staffTouched =
+    (input.attendantName !== undefined && input.attendantName !== existing.attendantName) ||
+    (input.billedByName !== undefined && input.billedByName !== existing.billedByName);
+  if (staffTouched) {
+    await tx.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        ...(input.attendantName !== undefined ? { attendantName: input.attendantName } : {}),
+        ...(input.billedByName !== undefined ? { billedByName: input.billedByName } : {}),
+      },
+    });
+  }
+
   // Legacy manual toggle - kept, but translated into real payment records.
   if (input.paymentStatus === 'PAID') {
     const { invoice: fresh } = await recalculateInvoice(tx, invoiceId, ctx.userId);
@@ -549,7 +574,7 @@ export async function updateInvoice(
 
   const { invoice: after } = await recalculateInvoice(tx, invoiceId, ctx.userId);
 
-  if (billingTouched || input.notes !== undefined) {
+  if (billingTouched || input.notes !== undefined || staffTouched) {
     const afterRow = await tx.invoice.findUniqueOrThrow({
       where: { id: invoiceId },
       include: { items: true, payments: true },
@@ -559,8 +584,8 @@ export async function updateInvoice(
       entityId: invoiceId,
       invoiceId,
       action: 'INVOICE_UPDATED',
-      oldValue: { ...before, notes: existing.notes },
-      newValue: { ...billingSnapshot(afterRow), notes: afterRow.notes },
+      oldValue: { ...before, notes: existing.notes, ...staffSnapshot(existing) },
+      newValue: { ...billingSnapshot(afterRow), notes: afterRow.notes, ...staffSnapshot(afterRow) },
       userId: ctx.userId,
     });
   }

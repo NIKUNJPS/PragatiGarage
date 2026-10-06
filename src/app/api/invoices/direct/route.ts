@@ -54,6 +54,8 @@ export const POST = withAuth(async (req, { user }) => {
       customerId: vehicle.customerId,
       billing: input,
       notes: input.notes,
+      attendantName: input.attendantName,
+      billedByName: input.billedByName,
       publicToken: publicToken(),
       createdAt: when,
       currency: garage.currency,

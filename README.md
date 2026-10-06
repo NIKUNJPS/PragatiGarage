@@ -162,6 +162,8 @@ fallback — see `.env.example` for the full annotated list.
 | `npm run db:studio`  | Open Prisma Studio to browse the data                   |
 | `npm run db:reset`   | Wipe and reseed (destructive)                           |
 | `npm run typecheck`  | TypeScript check with no emit                           |
+| `npm test`           | Billing + report unit tests; DB tests too when `TEST_DATABASE_URL` is set |
+| `npm run test:db`    | Only the database tests (needs `TEST_DATABASE_URL`)     |
 
 ---
 
@@ -205,7 +207,20 @@ fallback — see `.env.example` for the full annotated list.
   discount, **Paid/Pending** bifurcation with a dedicated pending-payments view,
   print-optimised layout, and a pixel-matched PDF download. A repeat **vehicle
   number is reused** — each new bill is simply another dated visit in that
-  vehicle's history, never a duplicate.
+  vehicle's history, never a duplicate. Every bill records the **car attendant**
+  (the mechanic who worked on the vehicle) and **who created the bill** — typed
+  on the form because the owner login is shared at the counter. Names used
+  before are offered as one-tap picks, the last "created by" name is remembered
+  on each device, and both appear on the invoice, the PDF and the invoice list
+  (and are searchable).
+- **Reports** — a **daily report** (pick any date: bills created, amount billed,
+  money received by payment method, dues, discount, a section breakdown that
+  adds up to the billed total, and totals per car attendant and per bill
+  creator) and a **monthly report** (day-by-day revenue chart and table, the same
+  breakdowns, and a 12-month billing trend). *Billed* (bills issued) and
+  *received* (payments taken, including dues on older bills) are always shown
+  separately. Days and months follow the garage's local time zone even when the
+  server runs in UTC. Download as CSV or print.
 - **WhatsApp sharing (free)** — one click opens WhatsApp pre-addressed to the
   customer with the invoice message + public link filled in; unpaid invoices also
   get a one-click **Send payment reminder**. Both use the free wa.me link (no paid
