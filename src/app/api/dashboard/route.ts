@@ -1,19 +1,22 @@
 import { prisma } from '@/lib/prisma';
-import { ok, withAuth } from '@/lib/api';
+import { ok, parseQuery, withAuth } from '@/lib/api';
 import { getGarage } from '@/lib/garage';
+import { summarizePayments } from '@/lib/reports';
 import { serializeJobCardListItem } from '@/lib/serializers';
-import { splitCollected } from '@/lib/billing';
-import { fromPaise, toPaise } from '@/lib/money';
-import { endOfDay, startOfDay, toNumber, type DecimalLike } from '@/lib/utils';
-import type { DashboardStats, InvoiceItemKind } from '@/types';
+import { dayRange, monthKeyOf, monthRange, todayKey } from '@/lib/timezone';
+import { toNumber } from '@/lib/utils';
+import { dashboardQuerySchema } from '@/lib/validations';
+import type { DashboardStats } from '@/types';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = withAuth(async () => {
-  const now = new Date();
-  const dayStart = startOfDay(now);
-  const dayEnd = endOfDay(now);
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+export const GET = withAuth(async (req) => {
+  // "Today" and "this month" start at local midnight in the viewer's time zone,
+  // not the server's (UTC on Vercel).
+  const { tz } = parseQuery(req, dashboardQuerySchema);
+  const today = todayKey(tz);
+  const { start: dayStart, end: dayEnd } = dayRange(today, tz);
+  const { start: monthStart } = monthRange(monthKeyOf(today), tz);
 
   const paymentInclude = {
     invoice: {
@@ -42,12 +45,12 @@ export const GET = withAuth(async () => {
     // Revenue is money actually received (payment records, by the day it came in),
     // so discounts and unpaid balances never show up as collected.
     prisma.payment.findMany({
-      where: { isVoided: false, paidAt: { gte: dayStart, lte: dayEnd }, invoice: { isArchived: false } },
-      select: { amount: true, ...paymentInclude },
+      where: { isVoided: false, paidAt: { gte: dayStart, lt: dayEnd }, invoice: { isArchived: false } },
+      select: { amount: true, method: true, ...paymentInclude },
     }),
     prisma.payment.findMany({
-      where: { isVoided: false, paidAt: { gte: monthStart, lte: dayEnd }, invoice: { isArchived: false } },
-      select: { amount: true, ...paymentInclude },
+      where: { isVoided: false, paidAt: { gte: monthStart, lt: dayEnd }, invoice: { isArchived: false } },
+      select: { amount: true, method: true, ...paymentInclude },
     }),
     prisma.invoice.aggregate({
       where: { isArchived: false, paymentStatus: { in: ['UNPAID', 'PARTIAL'] } },
@@ -73,8 +76,8 @@ export const GET = withAuth(async () => {
     getGarage(),
   ]);
 
-  const today = collectedSplit(todayPayments);
-  const month = collectedSplit(monthPayments);
+  const todayTotals = summarizePayments(todayPayments);
+  const monthTotals = summarizePayments(monthPayments);
 
   const stats: DashboardStats = {
     totalCustomers,
@@ -82,12 +85,12 @@ export const GET = withAuth(async () => {
     activeJobs: pendingJobs + inProgressJobs,
     pendingJobs,
     inProgressJobs,
-    todayRevenue: today.total,
-    monthRevenue: month.total,
-    todayPartsRevenue: today.parts,
-    todayLabourRevenue: today.labour,
-    monthPartsRevenue: month.parts,
-    monthLabourRevenue: month.labour,
+    todayRevenue: todayTotals.collected,
+    monthRevenue: monthTotals.collected,
+    todayPartsRevenue: todayTotals.collectedParts,
+    todayLabourRevenue: todayTotals.collectedLabour,
+    monthPartsRevenue: monthTotals.collectedParts,
+    monthLabourRevenue: monthTotals.collectedLabour,
     unpaidCount: outstanding._count,
     unpaidAmount: toNumber(outstanding._sum.balanceDue),
     currency: garage.currency,
@@ -96,30 +99,3 @@ export const GET = withAuth(async () => {
 
   return ok(stats);
 });
-
-/**
- * Totals the payments and splits each one into spare parts vs labour in the same
- * proportion as its invoice's line items (service charges count as labour).
- */
-function collectedSplit(
-  payments: Array<{
-    amount: DecimalLike;
-    invoice: { subtotal: DecimalLike; items: Array<{ kind: InvoiceItemKind; total: DecimalLike }> };
-  }>,
-): { total: number; parts: number; labour: number } {
-  let total = 0;
-  let parts = 0;
-  let labour = 0;
-
-  for (const payment of payments) {
-    const partsBilled = payment.invoice.items
-      .filter((i) => i.kind === 'PART')
-      .reduce((sum, i) => sum + toPaise(toNumber(i.total)), 0);
-    const split = splitCollected(toNumber(payment.amount), fromPaise(partsBilled), toNumber(payment.invoice.subtotal));
-    total += toPaise(toNumber(payment.amount));
-    parts += toPaise(split.parts);
-    labour += toPaise(split.labour);
-  }
-
-  return { total: fromPaise(total), parts: fromPaise(parts), labour: fromPaise(labour) };
-}

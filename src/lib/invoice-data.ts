@@ -26,6 +26,10 @@ export interface InvoiceView {
   paymentStatus: PaymentStatus;
   paymentMethod: string | null;
   notes: string | null;
+  /** Car attendant - the mechanic who attended the vehicle. */
+  attendantName: string | null;
+  /** Person who made the bill. */
+  billedByName: string | null;
   /** Gross amount before discount and tax. */
   subtotal: number;
   taxRate: number;
@@ -143,6 +147,8 @@ export async function buildInvoiceView(
     paymentStatus: invoice.paymentStatus,
     paymentMethod: invoice.paymentMethod,
     notes: invoice.notes,
+    attendantName: invoice.attendantName,
+    billedByName: invoice.billedByName,
     subtotal: toNumber(invoice.subtotal),
     taxRate: toNumber(invoice.taxRate),
     tax: toNumber(invoice.tax),

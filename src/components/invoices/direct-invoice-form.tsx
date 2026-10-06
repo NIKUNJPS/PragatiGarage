@@ -29,6 +29,7 @@ import {
   newIdempotencyKey,
   useBillingPreview,
 } from '@/components/invoices/billing-fields';
+import { StaffNameFields, rememberBiller } from '@/components/invoices/staff-name-fields';
 import type { VehicleDTO } from '@/types';
 import type { InvoiceView } from '@/lib/invoice-data';
 
@@ -39,6 +40,18 @@ function todayInput(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
     d.getDate(),
   ).padStart(2, '0')}`;
+}
+
+/**
+ * The moment the bill is dated: right now for today's bills, local noon for a
+ * back-dated one. Sending the full timestamp keeps the bill on the chosen day
+ * in the daily report whatever the server's time zone.
+ */
+function issueTimestamp(date: string | undefined): string {
+  if (!date || date === todayInput()) return new Date().toISOString();
+  const [y, m, d] = date.split('-').map(Number);
+  if (!y || !m || !d) return date;
+  return new Date(y, m - 1, d, 12, 0, 0).toISOString();
 }
 
 /**
@@ -58,6 +71,7 @@ export function DirectInvoiceForm({ presetVehicle }: { presetVehicle?: VehicleDT
     register,
     control,
     handleSubmit,
+    getValues,
     setValue,
     setError,
     watch,
@@ -79,6 +93,8 @@ export function DirectInvoiceForm({ presetVehicle }: { presetVehicle?: VehicleDT
       paymentMethod: '',
       paymentReference: '',
       notes: '',
+      attendantName: '',
+      billedByName: '',
     },
   });
 
@@ -97,11 +113,13 @@ export function DirectInvoiceForm({ presetVehicle }: { presetVehicle?: VehicleDT
   const mutation = useMutation({
     mutationFn: (values: FormValues) => api.post<InvoiceView>('/api/invoices/direct', values),
     onSuccess: (invoice) => {
+      rememberBiller(invoice.billedByName);
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['job-cards'] });
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
       queryClient.invalidateQueries({ queryKey: ['session'] });
       toast.success('Invoice created', `${invoice.invoiceNumber} saved.`);
       router.push(`/invoices/${invoice.id}?created=1`);
@@ -123,7 +141,12 @@ export function DirectInvoiceForm({ presetVehicle }: { presetVehicle?: VehicleDT
           setError('paymentAmount', { type: 'billing', message: paymentError });
           return;
         }
-        mutation.mutate({ ...values, expectedTotal: totals.totalAmount, idempotencyKey });
+        mutation.mutate({
+          ...values,
+          issueDate: issueTimestamp(getValues('issueDate')),
+          expectedTotal: totals.totalAmount,
+          idempotencyKey,
+        });
       })}
       className="space-y-4 pb-24 lg:pb-4"
     >
@@ -246,6 +269,9 @@ export function DirectInvoiceForm({ presetVehicle }: { presetVehicle?: VehicleDT
           </div>
         </CardContent>
       </Card>
+
+      {/* ------------------------------------------- attendant + bill created by */}
+      <StaffNameFields register={register} watch={watch} setValue={setValue} errors={errors} prefillBiller />
 
       {/* --------------------------------------------- tax / payment / total */}
       <div className="grid gap-4 lg:grid-cols-2">

@@ -73,6 +73,7 @@ export function InvoiceRowActions({ invoice }: { invoice: InvoiceListItemDTO }) 
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
       queryClient.invalidateQueries({ queryKey: ['job-cards'] });
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
       setDeleteOpen(false);

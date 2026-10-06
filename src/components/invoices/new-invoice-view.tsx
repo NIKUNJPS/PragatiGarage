@@ -31,6 +31,7 @@ import {
   newIdempotencyKey,
   useBillingPreview,
 } from '@/components/invoices/billing-fields';
+import { StaffNameFields, rememberBiller } from '@/components/invoices/staff-name-fields';
 import type { JobCardDetailDTO } from '@/types';
 import type { InvoiceView } from '@/lib/invoice-data';
 
@@ -154,6 +155,8 @@ function InvoiceForm({ jobCard }: { jobCard: JobCardDetailDTO }) {
       paymentMethod: '',
       paymentReference: '',
       notes: '',
+      attendantName: '',
+      billedByName: '',
     },
   });
 
@@ -164,9 +167,11 @@ function InvoiceForm({ jobCard }: { jobCard: JobCardDetailDTO }) {
   const mutation = useMutation({
     mutationFn: (values: FormValues) => api.post<InvoiceView>('/api/invoices', values),
     onSuccess: (invoice) => {
+      rememberBiller(invoice.billedByName);
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['job-cards'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
       queryClient.invalidateQueries({ queryKey: ['session'] });
       toast.success('Invoice created', `${invoice.invoiceNumber} is ready to share.`);
       router.push(`/invoices/${invoice.id}?created=1`);
@@ -232,6 +237,8 @@ function InvoiceForm({ jobCard }: { jobCard: JobCardDetailDTO }) {
             />
           </CardContent>
         </Card>
+
+        <StaffNameFields register={register} watch={watch} setValue={setValue} errors={errors} prefillBiller />
 
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>

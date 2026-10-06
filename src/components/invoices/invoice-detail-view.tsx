@@ -57,6 +57,7 @@ export function InvoiceDetailView({ invoiceId }: { invoiceId: string }) {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
       queryClient.invalidateQueries({ queryKey: ['job-cards'] });
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
       toast.success('Invoice deleted', result.message);

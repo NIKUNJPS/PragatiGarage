@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { MAX_AMOUNT, MAX_QUANTITY, PAYMENT_METHODS } from '@/lib/billing';
 import { decimalPlaces } from '@/lib/money';
+import { isDateKey, isMonthKey, resolveTimeZone } from '@/lib/timezone';
 import { normalizeVehicleNumber } from '@/lib/utils';
 
 /* -------------------------------------------------------------------------- */
@@ -273,6 +274,34 @@ const taxRateSchema = z
 const optionalText = (max: number) =>
   trimmed(max).optional().or(z.literal('')).transform((v) => v || undefined);
 
+/** Inner whitespace is collapsed so reports group "Ramesh  K" with "Ramesh K". */
+const collapseSpaces = (v: string) => v.replace(/\s+/g, ' ');
+const BILLED_BY_REQUIRED = 'Enter the name of the person making this bill.';
+
+/**
+ * Who worked on the vehicle and who made the bill. The app runs on one shared
+ * owner login, so these names are typed on the bill rather than taken from the
+ * session. "Bill created by" is required on every new bill.
+ */
+const staffFields = {
+  attendantName: trimmed(80).optional().transform((v) => (v ? collapseSpaces(v) : undefined)),
+  billedByName: z
+    .string({ required_error: BILLED_BY_REQUIRED })
+    .trim()
+    .min(2, BILLED_BY_REQUIRED)
+    .max(80, 'Keep this under 80 characters.')
+    .transform(collapseSpaces),
+};
+
+/**
+ * On edit both names may be changed or cleared (older bills never had them).
+ * Omitted = leave as is; empty or null = clear.
+ */
+const editableName = trimmed(80)
+  .nullable()
+  .optional()
+  .transform((v) => (v === undefined ? undefined : v ? collapseSpaces(v) : null));
+
 /**
  * Billing fields shared by every invoice write. Totals are never accepted from
  * the client; `expectedTotal` is only compared against the server's own
@@ -317,6 +346,7 @@ export const createInvoiceSchema = z
   .object({
     jobCardId: z.string().min(1, 'A job card is required.').max(64),
     ...billingFields,
+    ...staffFields,
     ...initialPaymentFields,
   })
   .superRefine(refineInitialPayment);
@@ -348,6 +378,7 @@ export const directInvoiceSchema = z
   workPerformed: trimmed(2000).optional().default(''),
   odometer: optionalInt,
   ...billingFields,
+  ...staffFields,
   ...initialPaymentFields,
   })
   .superRefine(refineInitialPayment);
@@ -356,6 +387,8 @@ export type DirectInvoiceInput = z.infer<typeof directInvoiceSchema>;
 /** Client-side form schema for editing an existing invoice's line items & totals. */
 export const editInvoiceFormSchema = z.object({
   ...billingFields,
+  attendantName: editableName,
+  billedByName: editableName,
   /** Required when the new total is below what the customer has already paid. */
   confirmOverpayment: z.boolean().optional(),
 });
@@ -369,6 +402,8 @@ export const updateInvoiceSchema = z.object({
   discount: billingFields.discount,
   expectedTotal: billingFields.expectedTotal,
   notes: trimmed(500).optional().nullable(),
+  attendantName: editableName,
+  billedByName: editableName,
   confirmOverpayment: z.boolean().optional(),
   /**
    * Legacy manual status toggle, validated against real money: PAID records a
@@ -443,13 +478,43 @@ export const jobCardListQuerySchema = listQuerySchema.extend({
   vehicleId: z.string().optional(),
 });
 
+/** The viewer's IANA time zone, so "a day" means the garage's local day. Unknown -> garage default. */
+const timeZoneParam = z.string().trim().max(64).optional().transform(resolveTimeZone);
+
 export const invoiceListQuerySchema = listQuerySchema.extend({
   /** DUE = anything with money outstanding (UNPAID or PARTIAL). */
   paymentStatus: z.enum(['PAID', 'UNPAID', 'PARTIAL', 'DUE', 'ALL']).optional().default('ALL'),
   from: z.string().optional(),
   to: z.string().optional(),
+  tz: timeZoneParam,
   customerId: z.string().optional(),
 });
+
+/* -------------------------------------------------------------------------- */
+/* Reports                                                                     */
+/* -------------------------------------------------------------------------- */
+
+export const dailyReportQuerySchema = z.object({
+  /** Defaults to today in `tz`; a future date is treated as today. */
+  date: z
+    .string()
+    .trim()
+    .optional()
+    .refine((v) => !v || isDateKey(v), { message: 'Use a date like 2026-10-06.' }),
+  tz: timeZoneParam,
+});
+
+export const monthlyReportQuerySchema = z.object({
+  /** Defaults to the current month in `tz`; a future month is treated as this month. */
+  month: z
+    .string()
+    .trim()
+    .optional()
+    .refine((v) => !v || isMonthKey(v), { message: 'Use a month like 2026-10.' }),
+  tz: timeZoneParam,
+});
+
+export const dashboardQuerySchema = z.object({ tz: timeZoneParam });
 
 /* -------------------------------------------------------------------------- */
 /* Bulk import (historical / past data)                                        */

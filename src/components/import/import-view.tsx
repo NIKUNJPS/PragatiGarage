@@ -72,6 +72,7 @@ export function ImportView() {
       queryClient.invalidateQueries({ queryKey: ['job-cards'] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
       toast.success(
         'Import finished',
         `${data.summary.created} added, ${data.summary.skipped} skipped, ${data.summary.failed} errors.`,

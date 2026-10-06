@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Plus, Receipt } from 'lucide-react';
 
 import { api, errorMessage, qs } from '@/lib/client-api';
+import { browserTimeZone, isDateKey } from '@/lib/timezone';
 import { cn, formatCurrency, formatDate, prettyVehicleNumber, startOfDay } from '@/lib/utils';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useSession } from '@/hooks/use-session';
@@ -49,8 +50,14 @@ export function InvoicesView() {
     const requested = params.get('paymentStatus');
     return STATUS_FILTERS.some((f) => f.value === requested) ? (requested as StatusFilter) : 'ALL';
   });
-  const [from, setFrom] = React.useState(params.get('range') === 'today' ? today : '');
-  const [to, setTo] = React.useState(params.get('range') === 'today' ? today : '');
+  // ?range=today (dashboard) or ?from=&to= (reports) open the list pre-filtered.
+  const initialDate = (key: 'from' | 'to') => {
+    if (params.get('range') === 'today') return today;
+    const value = params.get(key);
+    return isDateKey(value) ? value : '';
+  };
+  const [from, setFrom] = React.useState(() => initialDate('from'));
+  const [to, setTo] = React.useState(() => initialDate('to'));
 
   const debounced = useDebounce(term, 300);
 
@@ -60,7 +67,7 @@ export function InvoicesView() {
     queryKey: ['invoices', 'list', debounced, page, paymentStatus, from, to],
     queryFn: () =>
       api.get<InvoiceListResponse>(
-        `/api/invoices${qs({ q: debounced, page, pageSize: 20, paymentStatus, from, to })}`,
+        `/api/invoices${qs({ q: debounced, page, pageSize: 20, paymentStatus, from, to, tz: browserTimeZone() })}`,
       ),
   });
 
@@ -112,7 +119,7 @@ export function InvoicesView() {
           value={term}
           onChange={setTerm}
           loading={isFetching && !isLoading}
-          placeholder="Search invoice number, customer or vehicle..."
+          placeholder="Search invoice, customer, vehicle, attendant or biller..."
         />
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -209,6 +216,7 @@ export function InvoicesView() {
                       <TableHead>Invoice</TableHead>
                       <TableHead>Customer</TableHead>
                       <TableHead>Vehicle</TableHead>
+                      <TableHead className="hidden lg:table-cell">Attendant / billed by</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
                       <TableHead className="w-10" />
@@ -235,6 +243,12 @@ export function InvoicesView() {
                         </TableCell>
                         <TableCell className="font-mono text-xs font-semibold">
                           {prettyVehicleNumber(invoice.vehicle.vehicleNumber)}
+                        </TableCell>
+                        <TableCell className="hidden text-xs lg:table-cell">
+                          <span className="block">{invoice.attendantName || '-'}</span>
+                          <span className="block text-muted-foreground">
+                            {invoice.billedByName ? `by ${invoice.billedByName}` : 'Not recorded'}
+                          </span>
                         </TableCell>
                         <TableCell>
                           <PaymentStatusBadge status={invoice.paymentStatus} />
@@ -270,6 +284,16 @@ export function InvoicesView() {
                             {prettyVehicleNumber(invoice.vehicle.vehicleNumber)} ·{' '}
                             {formatDate(invoice.createdAt)}
                           </p>
+                          {(invoice.attendantName || invoice.billedByName) && (
+                            <p className="truncate text-xs text-muted-foreground">
+                              {[
+                                invoice.attendantName && `Attendant: ${invoice.attendantName}`,
+                                invoice.billedByName && `By ${invoice.billedByName}`,
+                              ]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </p>
+                          )}
                         </div>
                         <div className="shrink-0 text-right">
                           <p className="font-semibold">

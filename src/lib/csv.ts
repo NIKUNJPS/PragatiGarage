@@ -195,3 +195,25 @@ export function buildTemplateCsv(): string {
     'Priya Sharma,9876500002,,"Baner, Pune",MH12CD5678,CAR,Maruti Suzuki,Swift VXi,2019,42300,,,';
   return `${header}\n${example1}\n${example2}\n`;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Export                                                                      */
+/* -------------------------------------------------------------------------- */
+
+type CsvCell = string | number | null | undefined;
+
+/**
+ * Builds RFC 4180 CSV. Cells that start with = + - @ are prefixed with ' so a
+ * customer or staff name can never run as a formula when the file is opened in
+ * Excel or Google Sheets (numbers are written as-is).
+ */
+export function toCsv(rows: CsvCell[][]): string {
+  const cell = (value: CsvCell) => {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'number') return Number.isFinite(value) ? String(value) : '';
+    let s = String(value);
+    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+    return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  return rows.map((row) => row.map(cell).join(',')).join('\r\n');
+}

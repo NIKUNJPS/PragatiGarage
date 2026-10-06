@@ -63,6 +63,7 @@ export function PaymentPanel({
     queryClient.setQueryData(['invoices', invoice.id], updated);
     queryClient.invalidateQueries({ queryKey: ['invoices'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    queryClient.invalidateQueries({ queryKey: ['reports'] });
     queryClient.invalidateQueries({ queryKey: ['job-cards'] });
     queryClient.invalidateQueries({ queryKey: ['customers'] });
     queryClient.invalidateQueries({ queryKey: ['vehicles'] });
