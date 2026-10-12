@@ -26,9 +26,9 @@ export interface InvoiceView {
   paymentStatus: PaymentStatus;
   paymentMethod: string | null;
   notes: string | null;
-  /** Car attendant - the mechanic who attended the vehicle. */
+  /** Internal only - null on the public customer link. Car attendant who attended the vehicle. */
   attendantName: string | null;
-  /** Person who made the bill. */
+  /** Internal only - null on the public customer link. Person who made the bill. */
   billedByName: string | null;
   /** Gross amount before discount and tax. */
   subtotal: number;
@@ -147,8 +147,8 @@ export async function buildInvoiceView(
     paymentStatus: invoice.paymentStatus,
     paymentMethod: invoice.paymentMethod,
     notes: invoice.notes,
-    attendantName: invoice.attendantName,
-    billedByName: invoice.billedByName,
+    attendantName: internal ? invoice.attendantName : null,
+    billedByName: internal ? invoice.billedByName : null,
     subtotal: toNumber(invoice.subtotal),
     taxRate: toNumber(invoice.taxRate),
     tax: toNumber(invoice.tax),
@@ -239,7 +239,10 @@ export async function getInvoiceViewById(id: string): Promise<InvoiceView | null
   return invoice ? buildInvoiceView(invoice) : null;
 }
 
-/** Public customer link: same saved figures, without payment notes or the audit trail. */
+/**
+ * Public customer link: same saved figures, without payment notes, the audit
+ * trail, or the staff names (car attendant / bill created by).
+ */
 export async function getInvoiceViewByToken(token: string): Promise<InvoiceView | null> {
   const invoice = await prisma.invoice.findUnique({
     where: { publicToken: token },

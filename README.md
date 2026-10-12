@@ -210,9 +210,11 @@ fallback — see `.env.example` for the full annotated list.
   vehicle's history, never a duplicate. Every bill records the **car attendant**
   (the mechanic who worked on the vehicle) and **who created the bill** — typed
   on the form because the owner login is shared at the counter. Names used
-  before are offered as one-tap picks, the last "created by" name is remembered
-  on each device, and both appear on the invoice, the PDF and the invoice list
-  (and are searchable).
+  before are offered as one-tap picks, and the last "created by" name is
+  remembered on each device. Both names are **internal**: the owner sees them on
+  the invoice page in the app, the invoice list (searchable) and the reports,
+  but they are never on the customer's printed bill, PDF, public link or
+  WhatsApp message.
 - **Reports** — a **daily report** (pick any date: bills created, amount billed,
   money received by payment method, dues, discount, a section breakdown that
   adds up to the billed total, and totals per car attendant and per bill

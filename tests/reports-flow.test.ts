@@ -9,6 +9,7 @@
  */
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
+import zlib from 'node:zlib';
 
 const url = process.env.TEST_DATABASE_URL;
 if (url) {
@@ -19,6 +20,24 @@ if (url) {
 const IST = 'Asia/Kolkata';
 /** IST wall-clock time -> instant. */
 const ist = (local: string) => new Date(`${local}+05:30`);
+
+/** Every piece of text drawn on a pdf-lib PDF (hex strings inside compressed content streams). */
+function pdfText(bytes: Uint8Array): string {
+  const raw = Buffer.from(bytes).toString('latin1');
+  const out: string[] = [];
+  for (const m of raw.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)) {
+    let body = Buffer.from(m[1], 'latin1');
+    try {
+      body = zlib.inflateSync(body);
+    } catch {
+      // not compressed
+    }
+    for (const t of body.toString('latin1').matchAll(/<([0-9A-Fa-f]+)>\s*Tj/g)) {
+      out.push(Buffer.from(t[1], 'hex').toString('latin1'));
+    }
+  }
+  return out.join('\n');
+}
 
 describe('revenue reports (database)', { skip: !url && 'TEST_DATABASE_URL not set' }, () => {
   let prisma: import('@prisma/client').PrismaClient;
@@ -277,7 +296,35 @@ describe('revenue reports (database)', { skip: !url && 'TEST_DATABASE_URL not se
     assert.equal(monthly.days.length, 12, 'the current month stops at today');
   });
 
-  it('stores, shows and audits the car attendant and bill-created-by names', async () => {
+  it('never shows the car attendant or bill-created-by to the customer', async () => {
+    const id = await bill({
+      at: new Date(),
+      items: [{ kind: 'PART', description: 'Brake shoe', quantity: 1, unitPrice: 400 }],
+      attendantName: 'Attendant Zed',
+      billedByName: 'Biller Quinn',
+    });
+    const internal = await data.getInvoiceViewById(id);
+    assert.equal(internal?.attendantName, 'Attendant Zed', 'the owner still sees them in the app');
+
+    // Public link: stripped on the server, so they are not even in the page payload.
+    const row = await prisma.invoice.findUniqueOrThrow({ where: { id } });
+    const pub = await data.getInvoiceViewByToken(row.publicToken);
+    assert.ok(pub);
+    assert.equal(pub.attendantName, null);
+    assert.equal(pub.billedByName, null);
+    assert.ok(!JSON.stringify(pub).includes('Attendant Zed') && !JSON.stringify(pub).includes('Biller Quinn'));
+
+    // PDF (downloaded, stored and sent on WhatsApp) - rendered from the owner's own view.
+    const text = pdfText(await pdf.renderInvoicePdf(internal!));
+    assert.match(text, new RegExp(internal!.customer.name), 'sanity check: PDF text is readable');
+    assert.doesNotMatch(text, /Attendant Zed|Biller Quinn|Attended by|Billed by/);
+
+    // WhatsApp invoice message.
+    const whatsapp = await import('@/lib/whatsapp');
+    assert.doesNotMatch(whatsapp.buildInvoiceMessage(internal!), /Attendant Zed|Biller Quinn/);
+  });
+
+  it('stores, shows (to the owner) and audits the car attendant and bill-created-by names', async () => {
     const id = await bill({
       at: new Date(),
       items: [{ kind: 'LABOUR', description: 'Check-up', quantity: 1, unitPrice: 250 }],
@@ -290,7 +337,6 @@ describe('revenue reports (database)', { skip: !url && 'TEST_DATABASE_URL not se
     assert.equal(view?.billedByName, 'Suresh');
     const created = await prisma.auditLog.findFirstOrThrow({ where: { invoiceId: id, action: 'INVOICE_CREATED' } });
     assert.equal((created.newValue as Record<string, unknown>).billedByName, 'Suresh');
-    assert.ok(Buffer.from(await pdf.renderInvoicePdf(view!)).toString('latin1').startsWith('%PDF'));
 
     // Changing only the notes leaves the names alone.
     await run((tx) => svc.updateInvoice(tx, id, { notes: 'Washed' }, { userId, currency: 'INR' }));
