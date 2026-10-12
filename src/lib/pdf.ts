@@ -209,8 +209,7 @@ export async function renderInvoicePdf(invoice: InvoiceView): Promise<Uint8Array
   /* ------------------------------------------------ customer/vehicle box */
   const boxTop = y;
   const rowH = 18;
-  const hasStaff = Boolean(invoice.attendantName || invoice.billedByName);
-  const boxH = rowH * (hasStaff ? 4 : 3) + 12;
+  const boxH = rowH * 3 + 12;
   page.drawRectangle({ x: M, y: boxTop - boxH, width: W - 2 * M, height: boxH, borderColor: BLACK, borderWidth: 1.4 });
 
   const colL = M + 12;
@@ -233,11 +232,6 @@ export async function renderInvoicePdf(invoice: InvoiceView): Promise<Uint8Array
   ry -= rowH;
   field('Contact No.', invoice.customer.mobileNumber, colL, ry);
   field('Date', formatDate(invoice.createdAt), colR, ry);
-  if (hasStaff) {
-    ry -= rowH;
-    field('Attended by', invoice.attendantName || '-', colL, ry);
-    field('Billed by', invoice.billedByName || '-', colR, ry);
-  }
 
   y = boxTop - boxH - 16;
 

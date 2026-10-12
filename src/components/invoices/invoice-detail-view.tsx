@@ -8,10 +8,13 @@ import {
   CheckCircle2,
   ClipboardList,
   Download,
+  EyeOff,
+  HardHat,
   PartyPopper,
   Pencil,
   Printer,
   Trash2,
+  UserPen,
 } from 'lucide-react';
 
 import { api, errorMessage } from '@/lib/client-api';
@@ -204,6 +207,27 @@ export function InvoiceDetailView({ invoiceId }: { invoiceId: string }) {
         >
           Public invoice link
         </a>
+      </div>
+
+      {/* Staff names are internal: never on the printed bill, PDF, public link or WhatsApp. */}
+      <div className="mb-4 flex flex-col gap-2 rounded-lg border border-dashed bg-muted/40 px-4 py-3 text-sm no-print sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6">
+        <span className="inline-flex items-center gap-1.5">
+          <HardHat className="h-4 w-4 text-muted-foreground" />
+          <span className="text-muted-foreground">Car attendant:</span>
+          <span className={data.attendantName ? 'font-medium' : 'italic text-muted-foreground'}>
+            {data.attendantName || 'Not recorded'}
+          </span>
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <UserPen className="h-4 w-4 text-muted-foreground" />
+          <span className="text-muted-foreground">Bill created by:</span>
+          <span className={data.billedByName ? 'font-medium' : 'italic text-muted-foreground'}>
+            {data.billedByName || 'Not recorded'}
+          </span>
+        </span>
+        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground sm:ml-auto">
+          <EyeOff className="h-3.5 w-3.5" /> Internal - not shown to the customer
+        </span>
       </div>
 
       <PaymentPanel invoice={data} recordOpen={payOpen} onRecordOpenChange={setPayOpen} />

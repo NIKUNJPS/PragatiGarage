@@ -133,12 +133,6 @@ export function InvoiceDocument({ invoice }: { invoice: InvoiceView }) {
             />
             <InfoRow label="Contact No." value={invoice.customer.mobileNumber} />
             <InfoRow label="Date" value={formatDate(invoice.createdAt)} />
-            {(invoice.attendantName || invoice.billedByName) && (
-              <>
-                <InfoRow label="Attended by" value={invoice.attendantName || '-'} />
-                <InfoRow label="Billed by" value={invoice.billedByName || '-'} />
-              </>
-            )}
           </div>
         </div>
 

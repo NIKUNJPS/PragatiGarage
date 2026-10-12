@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { HardHat, UserPen } from 'lucide-react';
+import { EyeOff, HardHat, UserPen } from 'lucide-react';
 
 import { api } from '@/lib/client-api';
 import { nameKey } from '@/lib/staff-names';
@@ -76,6 +76,10 @@ export function StaffNameFields({
     <Card>
       <CardHeader>
         <CardTitle>Car attendant &amp; bill created by</CardTitle>
+        <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <EyeOff className="h-3.5 w-3.5 shrink-0" />
+          For your records only - never shown on the customer&apos;s bill, PDF or WhatsApp message.
+        </p>
       </CardHeader>
       <CardContent className="grid gap-4 sm:grid-cols-2">
         <NameField
