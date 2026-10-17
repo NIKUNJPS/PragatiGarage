@@ -211,10 +211,11 @@ fallback — see `.env.example` for the full annotated list.
   (the mechanic who worked on the vehicle) and **who created the bill** — typed
   on the form because the owner login is shared at the counter. Names used
   before are offered as one-tap picks, and the last "created by" name is
-  remembered on each device. Both names are **internal**: the owner sees them on
-  the invoice page in the app, the invoice list (searchable) and the reports,
-  but they are never on the customer's printed bill, PDF, public link or
-  WhatsApp message.
+  remembered on each device. Both names are **owner-only**: on the invoice page
+  they stay hidden behind an **Owner details** button (so the screen can be shown
+  to the customer right after billing), and they appear in the invoice list
+  (searchable) and the reports. They are never on the customer's printed bill,
+  PDF, public link or WhatsApp message.
 - **Reports** — a **daily report** (pick any date: bills created, amount billed,
   money received by payment method, dues, discount, a section breakdown that
   adds up to the billed total, and totals per car attendant and per bill
